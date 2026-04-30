@@ -3,9 +3,11 @@
 # ================================================================
 FROM node:20-alpine AS frontend-builder
 WORKDIR /build/client
+# Force development so npm ci installs devDependencies (tsc, vite, etc.)
+ENV NODE_ENV=development
 
 COPY client/package*.json ./
-RUN npm ci --prefer-offline
+RUN npm ci
 
 COPY client/ .
 RUN npm run build
@@ -15,9 +17,10 @@ RUN npm run build
 # ================================================================
 FROM node:20-alpine AS backend-builder
 WORKDIR /build/server
+ENV NODE_ENV=development
 
 COPY server/package*.json ./
-RUN npm ci --prefer-offline
+RUN npm ci
 
 COPY server/ .
 RUN npx prisma generate
