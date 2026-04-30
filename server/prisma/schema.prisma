@@ -1,0 +1,208 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Proyecto {
+  id        String   @id @default(uuid())
+  nombre    String
+  abreviatura String?
+  direccion String?
+  ciudad    String?
+  logoUrl   String?
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  empresaContratanteId String?
+
+  torres             Torre[]
+  contratistas       Contratista[]
+  usuarioProyectos   UsuarioProyecto[]
+  bitacoras          Bitacora[]
+  empresaContratante EmpresaContratante? @relation(fields: [empresaContratanteId], references: [id])
+}
+
+model Torre {
+  id          String   @id @default(uuid())
+  proyectoId  String
+  nombre      String
+  abreviatura  String?
+  folioActual Int      @default(0)
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  proyecto       Proyecto        @relation(fields: [proyectoId], references: [id])
+  usuarioTorres  UsuarioTorre[]
+  bitacoras      Bitacora[]
+  folioControles FolioControl[]
+}
+
+model Usuario {
+  id           String   @id @default(uuid())
+  nombre       String
+  apellido     String
+  cedula       String   @unique
+  cargo        String
+  email        String   @unique
+  passwordHash String
+  tipoUsuario  String   // residente_obra, director_obra, interventoria, admin
+  activo       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  empresaInterventoriaId String?
+
+  usuarioProyectos     UsuarioProyecto[]
+  usuarioTorres        UsuarioTorre[]
+  bitacorasCreadas     Bitacora[]            @relation("BitacoraCreador")
+  empresaInterventoria EmpresaInterventoria? @relation(fields: [empresaInterventoriaId], references: [id])
+}
+
+model UsuarioProyecto {
+  id         String @id @default(uuid())
+  usuarioId  String
+  proyectoId String
+
+  usuario  Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  proyecto Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, proyectoId])
+}
+
+model UsuarioTorre {
+  id        String @id @default(uuid())
+  usuarioId String
+  torreId   String
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  torre   Torre   @relation(fields: [torreId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, torreId])
+}
+
+model Contratista {
+  id         String   @id @default(uuid())
+  proyectoId String
+  nombre     String
+  activo     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  proyecto    Proyecto            @relation(fields: [proyectoId], references: [id])
+  actividades BitacoraActividad[]
+}
+
+model Bitacora {
+  id                    String   @id @default(uuid())
+  torreId               String
+  proyectoId            String
+  numeroFolio           Int
+  fechaRegistro         String   // DATE as string YYYY-MM-DD
+  horaRegistro          String   // TIME as string HH:MM:SS
+  estadoDiligencia      String   @default("nuevo") // nuevo, pendiente_director, pendiente_interventor, pendiente_ambos, completado
+  estadoObra            String?  // avanzada, normal, retrasada, detenida
+  diaLaborable          Boolean  @default(true)
+  razonNoLaboral        String?  // domingo, festivo, otro
+  explicacionNoLaboral  String?
+  creadoPorUsuarioId    String
+  firmaResidenteData    String?  // JSON string
+  firmaResidenteTimestamp DateTime?
+  firmaDirectorData     String?  // JSON string
+  firmaDirectorTimestamp  DateTime?
+  firmaInterventorData  String?  // JSON string
+  firmaInterventorTimestamp DateTime?
+  omitirFirmaResidente  Boolean  @default(false)
+  notasGenerales        String?
+  ordenesImpartidas     String?
+  cambiosAprobados      String?
+  coordinacionesTecnicas String?
+  accidentesFallas      String?
+  fotoAccidenteUrl      String?
+  reclamosComunidad     String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  torre      Torre    @relation(fields: [torreId], references: [id])
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id])
+  creadoPor  Usuario  @relation("BitacoraCreador", fields: [creadoPorUsuarioId], references: [id])
+  actividades BitacoraActividad[]
+  ensayos     BitacoraEnsayo[]
+
+  @@unique([torreId, fechaRegistro])
+}
+
+model BitacoraActividad {
+  id                   String   @id @default(uuid())
+  bitacoraId           String
+  esVisita             Boolean  @default(false)
+  actividadEjecutada   String
+  porcentajeCompletado Int?
+  contratistaId        String?
+  trabajadoresEnObra   Int?
+  horasTrabajadas      Int?
+  climaManana          String?  // soleado, nublado, lluvia, tormenta_electrica
+  climaTarde           String?
+  foto1Url             String?
+  foto2Url             String?
+  notasGenerales       String?
+  descripcionVisita    String?
+  numeroPersonasVisita Int?
+  duracionVisita       Int?     // en minutos
+  createdAt            DateTime @default(now())
+
+  bitacora    Bitacora     @relation(fields: [bitacoraId], references: [id], onDelete: Cascade)
+  contratista Contratista? @relation(fields: [contratistaId], references: [id])
+}
+
+model BitacoraEnsayo {
+  id              String   @id @default(uuid())
+  bitacoraId      String
+  ensayoRealizado String
+  anexoFotoUrl   String
+  createdAt      DateTime @default(now())
+
+  bitacora    Bitacora @relation(fields: [bitacoraId], references: [id], onDelete: Cascade)
+}
+
+model FolioControl {
+  id          String @id @default(uuid())
+  torreId     String
+  fecha       String // DATE as string YYYY-MM-DD
+  numeroFolio Int
+
+  torre Torre @relation(fields: [torreId], references: [id])
+
+  @@unique([torreId, fecha])
+}
+
+model FestivoColombia {
+  id     String @id @default(uuid())
+  fecha  String // DATE as string YYYY-MM-DD
+  nombre String
+  anio   Int
+
+  @@unique([fecha])
+}
+
+model EmpresaInterventoria {
+  id        String    @id @default(uuid())
+  nombre    String
+  nit       String?
+  activo    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  usuarios  Usuario[]
+}
+
+model EmpresaContratante {
+  id        String     @id @default(uuid())
+  nombre    String
+  nit       String?
+  activo    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  proyectos Proyecto[]
+}
