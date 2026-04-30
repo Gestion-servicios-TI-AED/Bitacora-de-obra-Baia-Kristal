@@ -37,7 +37,7 @@ export const createEmpresaInterventoria = async (req: Request, res: Response) =>
 // Update an existing empresa interventora
 export const updateEmpresaInterventoria = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params['id'] as string;
     const { nombre, nit, activo } = req.body;
 
     const empresaActualizada = await prisma.empresaInterventoria.update({
@@ -59,7 +59,7 @@ export const updateEmpresaInterventoria = async (req: Request, res: Response) =>
 // Delete an empresa interventora
 export const deleteEmpresaInterventoria = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params['id'] as string;
 
     // Optional: Check if there are users associated with this company before deleting
     const usersCount = await prisma.usuario.count({

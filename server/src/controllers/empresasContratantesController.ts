@@ -37,7 +37,7 @@ export const createEmpresaContratante = async (req: Request, res: Response) => {
 // Update an existing empresa contratante
 export const updateEmpresaContratante = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params['id'] as string;
     const { nombre, nit, activo } = req.body;
 
     const empresaActualizada = await prisma.empresaContratante.update({
@@ -59,7 +59,7 @@ export const updateEmpresaContratante = async (req: Request, res: Response) => {
 // Delete an empresa contratante
 export const deleteEmpresaContratante = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params['id'] as string;
 
     // Check if there are projects associated with this company before deleting
     const projectsCount = await prisma.proyecto.count({
