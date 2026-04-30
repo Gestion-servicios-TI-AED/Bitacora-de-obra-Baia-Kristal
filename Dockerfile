@@ -47,6 +47,9 @@ COPY server/prisma ./prisma
 # Copy built React app — Express serves it as static files in production
 COPY --from=frontend-builder /build/client/dist ./public
 
+# Copy utility scripts (e.g. create-admin)
+COPY scripts ./scripts
+
 # Create persistent data directory (overridden by Coolify volume at /data)
 RUN mkdir -p /data/uploads
 
