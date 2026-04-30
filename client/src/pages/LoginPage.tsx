@@ -38,8 +38,9 @@ export default function LoginPage() {
                     <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 mb-5 shadow-2xl">
                         <Building2 className="w-10 h-10 text-[#F5A623]" />
                     </div>
-                    <h1 className="text-3xl font-bold text-white tracking-tight">Constructora AED</h1>
-                    <p className="text-blue-200/80 mt-2 text-sm font-medium">Bitácora de Obra — v1.0</p>
+                    <h1 className="text-3xl font-bold text-white tracking-tight">Bitácora de Obra</h1>
+                    <p className="text-[#F5A623] mt-1 text-lg font-semibold tracking-wide">Baia Kristal</p>
+                    <p className="text-blue-200/50 mt-2 text-xs font-medium uppercase tracking-widest">AED Constructores</p>
                 </div>
 
                 {/* Login card */}
@@ -112,9 +113,15 @@ export default function LoginPage() {
                     </form>
                 </div>
 
-                {/* Test credentials hint */}
-                <div className="mt-8 text-center text-[13px] text-blue-200/60 font-medium">
-                    <p>Credenciales de prueba: admin@aed.com / AED2024!</p>
+                {/* Support contact */}
+                <div className="mt-8 text-center text-[12px] text-blue-200/50 leading-relaxed">
+                    <p>¿Problemas para acceder a la aplicación?</p>
+                    <a
+                        href="mailto:rgalindo@aed.com.co"
+                        className="text-blue-200/70 hover:text-white underline underline-offset-2 transition-colors font-medium"
+                    >
+                        rgalindo@aed.com.co
+                    </a>
                 </div>
             </div>
         </div>
