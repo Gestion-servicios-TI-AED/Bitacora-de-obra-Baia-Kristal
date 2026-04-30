@@ -32,6 +32,9 @@ RUN npm run build
 FROM node:20-alpine AS production
 WORKDIR /app
 
+# OpenSSL is required by the Prisma schema engine at runtime
+RUN apk add --no-cache openssl
+
 # Copy server node_modules (includes prisma CLI + generated client)
 COPY --from=backend-builder /build/server/node_modules ./node_modules
 
