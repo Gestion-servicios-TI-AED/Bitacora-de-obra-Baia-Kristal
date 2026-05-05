@@ -36,13 +36,17 @@ async function getSiteId(token: string): Promise<string> {
 
     const url = new URL(siteUrl);
     const hostname = url.hostname;
-    const sitePath = url.pathname;
 
-    const response = await axios.get(
-        `https://graph.microsoft.com/v1.0/sites/${hostname}:${sitePath}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-    );
+    // Solo los dos primeros segmentos del path: /sites/NombreSitio o /teams/NombreSitio
+    // Descartamos cualquier sub-ruta adicional que el usuario haya copiado
+    const segments = url.pathname.replace(/\/+$/, '').split('/').filter(Boolean).slice(0, 2);
+    const sitePath = segments.length > 0 ? '/' + segments.join('/') : '';
 
+    const graphUrl = sitePath
+        ? `https://graph.microsoft.com/v1.0/sites/${hostname}:${sitePath}`
+        : `https://graph.microsoft.com/v1.0/sites/${hostname}`;
+
+    const response = await axios.get(graphUrl, { headers: { Authorization: `Bearer ${token}` } });
     return response.data.id as string;
 }
 
