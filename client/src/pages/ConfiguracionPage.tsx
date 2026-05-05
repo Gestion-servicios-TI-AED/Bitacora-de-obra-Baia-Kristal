@@ -619,9 +619,10 @@ function ContratistasTab({ showToast }: { showToast: (m: string) => void }) {
     const [nombre, setNombre] = useState('');
     const [proyectoId, setProyectoId] = useState('');
     const [filterProyectoId, setFilterProyectoId] = useState('');
+    const [syncing, setSyncing] = useState(false);
+    const [syncResult, setSyncResult] = useState<{ agregados: number; actualizados: number; omitidos: number } | null>(null);
     const { selectedProjectId } = useProjectStore();
 
-    // In single-project mode, lock filter to the active project
     const effectiveFilterProyectoId = SINGLE_PROJECT_MODE ? (selectedProjectId || '') : filterProyectoId;
 
     const { data: proyectos = [] } = useQuery({ queryKey: ['proyectos'], queryFn: async () => (await api.get('/proyectos')).data });
@@ -643,12 +644,30 @@ function ContratistasTab({ showToast }: { showToast: (m: string) => void }) {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contratistas'] }),
     });
 
+    const handleSync = async () => {
+        if (!effectiveFilterProyectoId) {
+            alert('Selecciona un proyecto para sincronizar.');
+            return;
+        }
+        setSyncing(true);
+        setSyncResult(null);
+        try {
+            const res = await api.post('/sync-contratistas', { proyectoId: effectiveFilterProyectoId });
+            setSyncResult(res.data);
+            queryClient.invalidateQueries({ queryKey: ['contratistas'] });
+            showToast(`Sincronización completada: ${res.data.agregados} nuevos, ${res.data.actualizados} actualizados`);
+        } catch (err: any) {
+            alert(err.response?.data?.error || 'Error al sincronizar con SharePoint');
+        } finally {
+            setSyncing(false);
+        }
+    };
+
     return (
         <div className="p-4 sm:p-0">
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-4">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                     <h2 className="text-lg font-semibold text-slate-800">Directorio de Contratistas</h2>
-                    {/* Project filter — hidden in single-project mode */}
                     {!SINGLE_PROJECT_MODE && (
                         <select value={filterProyectoId} onChange={(e) => setFilterProyectoId(e.target.value)} className="px-3.5 py-2 bg-white border border-slate-200 shadow-sm rounded-xl text-sm min-w-[200px] focus:outline-none focus:ring-2 focus:ring-primary/20">
                             <option value="">Filtrar por proyecto (Todos)</option>
@@ -656,16 +675,38 @@ function ContratistasTab({ showToast }: { showToast: (m: string) => void }) {
                         </select>
                     )}
                 </div>
-                <button onClick={() => { if (SINGLE_PROJECT_MODE && selectedProjectId) setProyectoId(selectedProjectId); setShowForm(true); }} className={btnPrimary}>
-                    <Plus className="w-4 h-4" /> Registrar Contratista
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleSync}
+                        disabled={syncing || !effectiveFilterProyectoId}
+                        className={btnSecondary}
+                        title="Importar contratistas con Debida Diligencia activa desde SharePoint"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                        {syncing ? 'Sincronizando...' : 'Sincronizar SharePoint'}
+                    </button>
+                    <button onClick={() => { if (SINGLE_PROJECT_MODE && selectedProjectId) setProyectoId(selectedProjectId); setShowForm(true); }} className={btnPrimary}>
+                        <Plus className="w-4 h-4" /> Registrar Contratista
+                    </button>
+                </div>
             </div>
+
+            {syncResult && (
+                <div className="mb-4 flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl text-sm animate-fadeIn">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>
+                        Sincronización exitosa —{' '}
+                        <strong>{syncResult.agregados}</strong> nuevos ·{' '}
+                        <strong>{syncResult.actualizados}</strong> actualizados ·{' '}
+                        <strong>{syncResult.omitidos}</strong> omitidos (sin debida diligencia)
+                    </span>
+                </div>
+            )}
 
             {showForm && (
                 <div className="border border-slate-200/80 rounded-2xl p-5 mb-6 bg-slate-50/50 shadow-sm animate-fadeIn">
                     <h3 className="text-sm font-medium text-slate-800 mb-4">Registrar Nuevo Contratista</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-                        {/* Project selector — hidden in single-project mode (auto-set) */}
                         {!SINGLE_PROJECT_MODE && (
                             <div>
                                 <label className={labelClasses}>Proyecto Asignado</label>
@@ -696,6 +737,7 @@ function ContratistasTab({ showToast }: { showToast: (m: string) => void }) {
                             <tr>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Razón Social / Entidad</th>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Proyecto Vinculado</th>
+                                <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Venc. SAGRILAFT</th>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider text-right">Estatus</th>
                             </tr>
                         </thead>
@@ -708,8 +750,11 @@ function ContratistasTab({ showToast }: { showToast: (m: string) => void }) {
                                             <span className="font-semibold text-slate-900">{c.nombre}</span>
                                         </div>
                                     </td>
-                                    <td className="py-3 px-5 text-slate-600 font-medium">
-                                        {c.proyecto?.nombre}
+                                    <td className="py-3 px-5 text-slate-600 font-medium">{c.proyecto?.nombre}</td>
+                                    <td className="py-3 px-5">
+                                        {c.fechaVencimientoSagrilaft
+                                            ? <span className="text-slate-700 text-xs font-medium">{c.fechaVencimientoSagrilaft}</span>
+                                            : <span className="text-slate-400 italic text-xs">—</span>}
                                     </td>
                                     <td className="py-3 px-5 text-right">
                                         <button onClick={() => toggle.mutate({ id: c.id, activo: !c.activo })} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title={c.activo ? "Marcar Inactivo" : "Marcar Activo"}>
@@ -720,7 +765,7 @@ function ContratistasTab({ showToast }: { showToast: (m: string) => void }) {
                             ))}
                             {contratistas.length === 0 && (
                                 <tr>
-                                    <td colSpan={3} className="py-12 text-center text-slate-500 bg-slate-50">
+                                    <td colSpan={4} className="py-12 text-center text-slate-500 bg-slate-50">
                                         No hay contratistas registrados para este filtro.
                                     </td>
                                 </tr>
