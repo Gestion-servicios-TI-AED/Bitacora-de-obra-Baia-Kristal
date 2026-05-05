@@ -84,11 +84,12 @@ model UsuarioTorre {
 }
 
 model Contratista {
-  id         String   @id @default(uuid())
-  proyectoId String
-  nombre     String
-  activo     Boolean  @default(true)
-  createdAt  DateTime @default(now())
+  id                        String   @id @default(uuid())
+  proyectoId                String
+  nombre                    String
+  activo                    Boolean  @default(true)
+  fechaVencimientoSagrilaft String?
+  createdAt                 DateTime @default(now())
 
   proyecto    Proyecto            @relation(fields: [proyectoId], references: [id])
   actividades BitacoraActividad[]

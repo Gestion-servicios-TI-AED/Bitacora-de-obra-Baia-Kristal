@@ -20,6 +20,7 @@ import festivosRoutes from './routes/festivos';
 import empresasInterventoriaRoutes from './routes/empresasInterventoria';
 import empresasContratantesRoutes from './routes/empresasContratantes';
 import ensayosRoutes from './routes/ensayos';
+import syncContratistasRoutes from './routes/syncContratistas';
 export const prisma = new PrismaClient();
 const app = express();
 const PORT = process.env['PORT'] || 3001;
@@ -39,7 +40,7 @@ app.use(express.urlencoded({ extended: true }));
 // Static files for uploads
 const uploadsDir = path.resolve(process.env['UPLOAD_DIR'] || './uploads');
 app.use('/uploads', express.static(uploadsDir, {
-    setHeaders: (res, path, stat) => {
+    setHeaders: (res, _path, _stat) => {
         res.set('Access-Control-Allow-Origin', '*');
         res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
         res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -66,6 +67,7 @@ app.use('/api/festivos', festivosRoutes);
 app.use('/api/empresas-interventoria', empresasInterventoriaRoutes);
 app.use('/api/empresas-contratantes', empresasContratantesRoutes);
 app.use('/api/ensayos', ensayosRoutes);
+app.use('/api/sync-contratistas', syncContratistasRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
