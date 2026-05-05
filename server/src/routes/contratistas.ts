@@ -8,7 +8,7 @@ const router = Router();
 router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     try {
         const { proyecto_id } = req.query;
-        const where: any = {};
+        const where: any = { activo: true };
         if (proyecto_id) where.proyectoId = proyecto_id as string;
 
         const contratistas = await prisma.contratista.findMany({

@@ -7,7 +7,7 @@ import { useState, useRef } from 'react';
 import {
     ArrowLeft, Building2, Calendar, Hash, Clock,
     CheckCircle2, X, ZoomIn, Shield, FileDown, MapPin, Briefcase, User, HardHat,
-    Lightbulb, AlertCircle, FlaskConical
+    Lightbulb, AlertCircle, FlaskConical, Edit
 } from 'lucide-react';
 import { toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
@@ -35,10 +35,66 @@ export default function DetalleBitacoraPage() {
     const pdfRef = useRef<HTMLDivElement>(null);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
+    // Edit activity (admin only)
+    const [editingActivity, setEditingActivity] = useState<any | null>(null);
+    const [editForm, setEditForm] = useState<any>({});
+    const canEditActividades = user?.tipoUsuario === 'admin';
+
+    const startEditActivity = (act: any) => {
+        setEditForm({
+            actividadEjecutada: act.actividadEjecutada ?? '',
+            porcentajeCompletado: act.porcentajeCompletado ?? 50,
+            contratistaId: act.contratistaId ?? '',
+            trabajadoresEnObra: act.trabajadoresEnObra ?? 1,
+            horasTrabajadas: act.horasTrabajadas ?? 1,
+            climaManana: act.climaManana ?? 'soleado',
+            climaTarde: act.climaTarde ?? 'soleado',
+            notasGenerales: act.notasGenerales ?? '',
+            foto1: null as File | null,
+            foto2: null as File | null,
+        });
+        setEditingActivity(act);
+    };
+
+    const editMutation = useMutation({
+        mutationFn: async () => {
+            const fd = new FormData();
+            fd.append('actividadEjecutada', editForm.actividadEjecutada);
+            fd.append('porcentajeCompletado', String(editForm.porcentajeCompletado));
+            fd.append('contratistaId', editForm.contratistaId ?? '');
+            fd.append('trabajadoresEnObra', String(editForm.trabajadoresEnObra));
+            fd.append('horasTrabajadas', String(editForm.horasTrabajadas));
+            fd.append('climaManana', editForm.climaManana);
+            fd.append('climaTarde', editForm.climaTarde);
+            fd.append('notasGenerales', editForm.notasGenerales);
+            if (editForm.foto1) fd.append('foto1', editForm.foto1);
+            if (editForm.foto2) fd.append('foto2', editForm.foto2);
+            return (await api.put(`/actividades/${editingActivity.id}`, fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            })).data;
+        },
+        onSuccess: (updated: any) => {
+            queryClient.setQueryData(['bitacora', id], (old: any) => ({
+                ...old,
+                actividades: old.actividades.map((a: any) => a.id === updated.id ? updated : a),
+            }));
+            setEditingActivity(null);
+            setSignSuccess('Actividad actualizada correctamente.');
+            setTimeout(() => setSignSuccess(''), 3000);
+        },
+        onError: (err: any) => alert(err.response?.data?.error || 'Error al guardar'),
+    });
+
     const { data: bitacora, isLoading } = useQuery({
         queryKey: ['bitacora', id],
         queryFn: async () => (await api.get(`/bitacoras/${id}`)).data,
         enabled: !!id,
+    });
+
+    const { data: contratistasParaEditar = [] } = useQuery({
+        queryKey: ['contratistas', bitacora?.proyectoId],
+        queryFn: async () => (await api.get(`/contratistas?proyecto_id=${bitacora.proyectoId}`)).data,
+        enabled: !!bitacora?.proyectoId && !!editingActivity,
     });
 
     const signMutation = useMutation({
@@ -460,6 +516,11 @@ export default function DetalleBitacoraPage() {
                                                 <div className="flex items-center gap-2 mb-1.5">
                                                     <span className="px-2 py-0.5 bg-slate-200 text-slate-700 text-[10px] font-black tracking-widest uppercase rounded"># {String(idx + 1).padStart(2, '0')}</span>
                                                     {act.porcentajeCompletado === 100 && <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Completada</span>}
+                                                    {canEditActividades && (
+                                                        <button onClick={() => startEditActivity(act)} className="ml-auto p-1 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="Editar actividad">
+                                                            <Edit className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    )}
                                                 </div>
                                                 <h4 className="font-bold text-slate-800 text-[15px] leading-snug">{act.actividadEjecutada}</h4>
                                             </div>
@@ -502,12 +563,12 @@ export default function DetalleBitacoraPage() {
                                             </div>
                                         </div>
 
-                                        {act.notasGenerales && (
-                                            <div className="p-4 bg-slate-50/50">
-                                                <span className="text-slate-500 text-xs font-bold uppercase tracking-wider block mb-2">Comentarios Específicos de la Actividad</span>
-                                                <p className="text-sm text-slate-700 font-medium leading-relaxed bg-white border border-slate-200 p-3 rounded-lg shadow-sm whitespace-pre-wrap">{act.notasGenerales}</p>
-                                            </div>
-                                        )}
+                                        <div className="p-4 bg-amber-50/60 border-t border-amber-100">
+                                            <span className="text-amber-700 text-xs font-bold uppercase tracking-wider block mb-2">Anotaciones Específicas de la Actividad</span>
+                                            <p className="text-sm text-slate-800 font-medium leading-relaxed bg-white border border-amber-200 p-3 rounded-lg shadow-sm whitespace-pre-wrap">
+                                                {act.notasGenerales || <span className="text-slate-400 italic">Sin anotaciones registradas</span>}
+                                            </p>
+                                        </div>
 
                                         {(act.foto1Url || act.foto2Url) && (
                                             <div className="p-4 border-t border-slate-100">
@@ -760,6 +821,92 @@ export default function DetalleBitacoraPage() {
                     </div>
                 </div>
             </div>
+
+        {/* ── Edit Activity Modal (admin only) ── */}
+        {editingActivity && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fadeIn">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-slate-200">
+                    <div className="border-b border-slate-200 bg-slate-50 px-6 py-4 flex items-center justify-between shrink-0">
+                        <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                            <Edit className="w-4 h-4 text-primary" /> Editar Actividad
+                        </h2>
+                        <button onClick={() => setEditingActivity(null)} className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
+                            <X className="w-5 h-5 text-slate-400" />
+                        </button>
+                    </div>
+
+                    <div className="overflow-y-auto p-6 space-y-4">
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1.5">Descripción de la actividad</label>
+                            <textarea value={editForm.actividadEjecutada} onChange={(e) => setEditForm({ ...editForm, actividadEjecutada: e.target.value })} rows={2} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1.5">Progreso: {editForm.porcentajeCompletado}%</label>
+                            <input type="range" min="1" max="100" value={editForm.porcentajeCompletado} onChange={(e) => setEditForm({ ...editForm, porcentajeCompletado: parseInt(e.target.value) })} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary" />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1.5">Contratista</label>
+                            <select value={editForm.contratistaId} onChange={(e) => setEditForm({ ...editForm, contratistaId: e.target.value })} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                <option value="">Sin contratista</option>
+                                {contratistasParaEditar.map((c: any) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1.5">Trabajadores</label>
+                                <input type="number" min="1" value={editForm.trabajadoresEnObra} onChange={(e) => setEditForm({ ...editForm, trabajadoresEnObra: parseInt(e.target.value) })} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1.5">Horas trabajadas (1–7)</label>
+                                <input type="number" min="1" max="7" value={editForm.horasTrabajadas} onChange={(e) => setEditForm({ ...editForm, horasTrabajadas: parseInt(e.target.value) })} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            {(['climaManana', 'climaTarde'] as const).map((field) => (
+                                <div key={field}>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">{field === 'climaManana' ? 'Clima AM' : 'Clima PM'}</label>
+                                    <select value={editForm[field]} onChange={(e) => setEditForm({ ...editForm, [field]: e.target.value })} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                        <option value="soleado">☀️ Soleado</option>
+                                        <option value="nublado">☁️ Nublado</option>
+                                        <option value="lluvia">🌧️ Lluvia</option>
+                                        <option value="tormenta_electrica">⚡ Tormenta Eléctrica</option>
+                                    </select>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1.5">Anotaciones específicas</label>
+                            <textarea value={editForm.notasGenerales} onChange={(e) => setEditForm({ ...editForm, notasGenerales: e.target.value })} rows={3} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" placeholder="Detalles sobre suministro, control de calidad..." />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            {[
+                                { field: 'foto1', label: 'Foto 1', current: editingActivity.foto1Url },
+                                { field: 'foto2', label: 'Foto 2', current: editingActivity.foto2Url },
+                            ].map(({ field, label, current }) => (
+                                <div key={field}>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">{label} <span className="text-xs font-normal text-slate-400">(opcional — reemplaza la actual)</span></label>
+                                    {current && !editForm[field] && <img src={current} className="w-full h-20 object-cover rounded-lg mb-2 border border-slate-200" crossOrigin="anonymous" />}
+                                    <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setEditForm({ ...editForm, [field]: e.target.files?.[0] || null })} className="w-full text-sm text-slate-700 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="border-t border-slate-200 bg-slate-50 px-6 py-4 flex gap-3 justify-end shrink-0">
+                        <button onClick={() => setEditingActivity(null)} className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors">Cancelar</button>
+                        <button onClick={() => editMutation.mutate()} disabled={editMutation.isPending} className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/95 transition-colors disabled:opacity-50">
+                            {editMutation.isPending ? 'Guardando...' : 'Guardar Cambios'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
         </div>
     );
 }
