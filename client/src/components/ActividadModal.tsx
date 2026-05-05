@@ -7,28 +7,30 @@ interface Props {
     torreId: string;
     onClose: () => void;
     onSave: (actividad: any) => void;
+    initialData?: any;
 }
 
-export default function ActividadModal({ torreId, onClose, onSave }: Props) {
-    const [esVisita, setEsVisita] = useState(false);
+export default function ActividadModal({ torreId, onClose, onSave, initialData }: Props) {
+    const isEditing = !!initialData;
+    const [esVisita, setEsVisita] = useState(initialData?.esVisita ?? false);
 
     // Actividad fields
-    const [actividadEjecutada, setActividadEjecutada] = useState('');
-    const [porcentajeCompletado, setPorcentajeCompletado] = useState(50);
-    const [contratistaId, setContratistaId] = useState('');
-    const [contratistaNombre, setContratistaNombre] = useState('');
-    const [trabajadoresEnObra, setTrabajadoresEnObra] = useState('');
-    const [horasTrabajadas, setHorasTrabajadas] = useState('');
-    const [climaManana, setClimaManana] = useState('');
-    const [climaTarde, setClimaTarde] = useState('');
-    const [foto1, setFoto1] = useState<File | null>(null);
-    const [foto2, setFoto2] = useState<File | null>(null);
-    const [notasGenerales, setNotasGenerales] = useState('');
+    const [actividadEjecutada, setActividadEjecutada] = useState(initialData?.actividadEjecutada ?? '');
+    const [porcentajeCompletado, setPorcentajeCompletado] = useState(initialData?.porcentajeCompletado ?? 50);
+    const [contratistaId, setContratistaId] = useState(initialData?.contratistaId ?? '');
+    const [contratistaNombre, setContratistaNombre] = useState(initialData?.contratistaNombre ?? '');
+    const [trabajadoresEnObra, setTrabajadoresEnObra] = useState(initialData?.trabajadoresEnObra?.toString() ?? '');
+    const [horasTrabajadas, setHorasTrabajadas] = useState(initialData?.horasTrabajadas?.toString() ?? '');
+    const [climaManana, setClimaManana] = useState(initialData?.climaManana ?? '');
+    const [climaTarde, setClimaTarde] = useState(initialData?.climaTarde ?? '');
+    const [foto1, setFoto1] = useState<File | null>(initialData?.foto1 ?? null);
+    const [foto2, setFoto2] = useState<File | null>(initialData?.foto2 ?? null);
+    const [notasGenerales, setNotasGenerales] = useState(initialData?.notasGenerales ?? '');
 
     // Visita fields
-    const [descripcionVisita, setDescripcionVisita] = useState('');
-    const [numeroPersonasVisita, setNumeroPersonasVisita] = useState('');
-    const [duracionVisita, setDuracionVisita] = useState('');
+    const [descripcionVisita, setDescripcionVisita] = useState(initialData?.descripcionVisita ?? '');
+    const [numeroPersonasVisita, setNumeroPersonasVisita] = useState(initialData?.numeroPersonasVisita?.toString() ?? '');
+    const [duracionVisita, setDuracionVisita] = useState(initialData?.duracionVisita?.toString() ?? '');
 
     const { data: torre } = useQuery({
         queryKey: ['torre', torreId],
@@ -114,7 +116,9 @@ export default function ActividadModal({ torreId, onClose, onSave }: Props) {
                         <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${esVisita ? 'bg-amber-100 text-amber-700' : 'bg-primary/10 text-primary'}`}>
                             {esVisita ? '🏛️' : '📝'}
                         </span>
-                        {esVisita ? 'Registro de Visita' : 'Registro de Actividad'}
+                        {isEditing
+                            ? (esVisita ? 'Editar Visita' : 'Editar Actividad')
+                            : (esVisita ? 'Registro de Visita' : 'Registro de Actividad')}
                     </h2>
                     <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-lg transition-colors group">
                         <X className="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
@@ -125,8 +129,8 @@ export default function ActividadModal({ torreId, onClose, onSave }: Props) {
 
                     {/* Toggle visita — prominente, antes de todo */}
                     <div
-                        onClick={() => handleToggleVisita(!esVisita)}
-                        className={`cursor-pointer select-none flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
+                        onClick={() => !isEditing && handleToggleVisita(!esVisita)}
+                        className={`select-none flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${isEditing ? 'opacity-50 pointer-events-none' : 'cursor-pointer'} ${
                             esVisita
                                 ? 'bg-amber-50 border-amber-400 shadow-md shadow-amber-100'
                                 : 'bg-slate-50 border-slate-200 hover:border-amber-300 hover:bg-amber-50/40'
@@ -404,7 +408,7 @@ export default function ActividadModal({ torreId, onClose, onSave }: Props) {
                             disabled={!isValid}
                             className={`flex-1 sm:flex-none px-6 py-2.5 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:pointer-events-none disabled:transform-none flex items-center justify-center gap-2 ${esVisita ? 'bg-amber-500 hover:bg-amber-600' : 'bg-primary hover:bg-primary/95'}`}
                         >
-                            {esVisita ? <><Users className="w-4 h-4" /> Registrar Visita</> : <><Upload className="w-4 h-4" /> Registrar Actividad</>}
+                            {isEditing ? <><Upload className="w-4 h-4" /> Guardar Cambios</> : esVisita ? <><Users className="w-4 h-4" /> Registrar Visita</> : <><Upload className="w-4 h-4" /> Registrar Actividad</>}
                         </button>
                     </div>
                 </div>

@@ -8,7 +8,7 @@ import ActividadModal from '../components/ActividadModal';
 import FirmaDigital from '../components/FirmaDigital';
 import {
     AlertTriangle, CheckCircle2, XCircle,
-    Plus, Trash2, Calendar, Hash, ClipboardList, PenTool, Shield,
+    Plus, Trash2, Edit, Calendar, Hash, ClipboardList, PenTool, Shield,
     Lightbulb, AlertCircle, FlaskConical, Image as ImageIcon
 } from 'lucide-react';
 import EnsayoModal from '../components/EnsayoModal';
@@ -37,6 +37,7 @@ export default function RegistrarBitacoraPage() {
     const [explicacionNoLaboral, setExplicacionNoLaboral] = useState('');
     const [actividades, setActividades] = useState<any[]>([]);
     const [showModal, setShowModal] = useState(false);
+    const [editingIdx, setEditingIdx] = useState<number | null>(null);
     const [torreBlocked, setTorreBlocked] = useState(false);
     const [folio, setFolio] = useState<number | null>(null);
     const [signed, setSigned] = useState(false);
@@ -488,9 +489,14 @@ export default function RegistrarBitacoraPage() {
                                                         </div>
                                                         <p className="font-semibold text-slate-800 text-sm leading-snug">{act.actividadEjecutada}</p>
                                                     </div>
-                                                    <button onClick={() => removeActividad(idx)} className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors p-1.5 rounded-lg shrink-0" title="Eliminar registro">
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
+                                                    <div className="flex items-center gap-1 shrink-0">
+                                                        <button onClick={() => { setEditingIdx(idx); setShowModal(true); }} className="text-slate-400 hover:text-primary hover:bg-primary/5 transition-colors p-1.5 rounded-lg" title="Editar actividad">
+                                                            <Edit className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => removeActividad(idx)} className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors p-1.5 rounded-lg" title="Eliminar registro">
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-[13px] bg-slate-50/80 rounded-lg p-3 border border-slate-100">
                                                     <div>
@@ -514,8 +520,14 @@ export default function RegistrarBitacoraPage() {
                                                         </div>
                                                     </div>
                                                 </div>
+                                                {act.notasGenerales && (
+                                                    <div className="mt-2 px-3 py-2 bg-amber-50 border border-amber-100 rounded-lg">
+                                                        <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest block mb-0.5">Anotaciones específicas</span>
+                                                        <p className="text-xs text-slate-700 leading-snug">{act.notasGenerales}</p>
+                                                    </div>
+                                                )}
                                                 {(act.foto1 || act.foto2) && (
-                                                    <div className="mt-4 pt-4 border-t border-slate-100">
+                                                    <div className="mt-3 pt-3 border-t border-slate-100">
                                                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                                                             {act.foto1 && (
                                                                 <figure className="relative rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100">
@@ -788,9 +800,15 @@ export default function RegistrarBitacoraPage() {
             {showModal && (
                 <ActividadModal
                     torreId={torreId}
-                    onClose={() => setShowModal(false)}
+                    initialData={editingIdx !== null ? actividades[editingIdx] : undefined}
+                    onClose={() => { setShowModal(false); setEditingIdx(null); }}
                     onSave={(act) => {
-                        addActividad(act);
+                        if (editingIdx !== null) {
+                            setActividades(actividades.map((a, i) => i === editingIdx ? act : a));
+                            setEditingIdx(null);
+                        } else {
+                            addActividad(act);
+                        }
                         setShowModal(false);
                     }}
                 />
