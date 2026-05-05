@@ -52,16 +52,41 @@ async function getSiteId(token: string): Promise<string> {
     return response.data.id as string;
 }
 
+function resolveFilePath(rawPath: string): string {
+    // Si el usuario pegó la URL completa del archivo, extraemos solo la ruta relativa al sitio
+    if (!rawPath.startsWith('http')) return rawPath;
+
+    const parsed = new URL(rawPath);
+    const siteUrl = process.env['SHAREPOINT_SITE_URL'] ?? '';
+    try {
+        const sitePathname = new URL(siteUrl).pathname
+            .replace(/\/+$/, '')
+            .split('/')
+            .filter(Boolean)
+            .slice(0, 2)
+            .join('/');
+        const decoded = decodeURIComponent(parsed.pathname);
+        // Eliminar el prefijo /sites/NombreSitio para obtener la ruta relativa
+        const relative = sitePathname ? decoded.replace(`/${sitePathname}`, '') : decoded;
+        return relative || decoded;
+    } catch {
+        return parsed.pathname;
+    }
+}
+
 async function getWorksheetData(token: string, siteId: string): Promise<{ values: any[][]; text: string[][] }> {
-    const filePath = process.env['SHAREPOINT_FILE_PATH'];
+    const rawFilePath = process.env['SHAREPOINT_FILE_PATH'];
     const sheetName = process.env['SHAREPOINT_SHEET_NAME'];
 
-    if (!filePath || !sheetName) {
+    if (!rawFilePath || !sheetName) {
         throw new Error('SHAREPOINT_FILE_PATH o SHAREPOINT_SHEET_NAME no configuradas');
     }
 
+    const filePath = resolveFilePath(rawFilePath);
     const encodedSheet = encodeURIComponent(sheetName);
     const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:${filePath}:/workbook/worksheets/${encodedSheet}/usedRange`;
+
+    console.log('[SharePoint getWorksheetData] filePath:', filePath, '| url:', url);
 
     const response = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
