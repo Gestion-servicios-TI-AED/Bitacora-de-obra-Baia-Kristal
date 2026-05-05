@@ -82,7 +82,11 @@ async function getWorksheetData(token: string, siteId: string): Promise<{ values
         throw new Error('SHAREPOINT_FILE_PATH o SHAREPOINT_SHEET_NAME no configuradas');
     }
 
-    const filePath = resolveFilePath(rawFilePath);
+    // Resolver la ruta y codificar cada segmento (evita doble-codificación de %20 ya existentes)
+    const filePath = resolveFilePath(rawFilePath)
+        .split('/')
+        .map((seg) => encodeURIComponent(decodeURIComponent(seg)))
+        .join('/');
     const encodedSheet = encodeURIComponent(sheetName);
     const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:${filePath}:/workbook/worksheets/${encodedSheet}/usedRange`;
 
