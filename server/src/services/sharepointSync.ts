@@ -94,10 +94,18 @@ function normalizeDate(value: any, textValue: string): string | null {
     return null;
 }
 
+function extractAxiosError(err: any): string {
+    return err?.response?.data?.error_description
+        ?? err?.response?.data?.error?.message
+        ?? err?.response?.data?.message
+        ?? err?.message
+        ?? 'Error desconocido';
+}
+
 export async function syncContratistas(proyectoId: string): Promise<SyncResult> {
-    const token = await getAccessToken();
-    const siteId = await getSiteId(token);
-    const { values, text } = await getWorksheetData(token, siteId);
+    const token = await getAccessToken().catch((err) => { throw new Error(`[Token Azure AD] ${extractAxiosError(err)}`); });
+    const siteId = await getSiteId(token).catch((err) => { throw new Error(`[SharePoint Site] ${extractAxiosError(err)}`); });
+    const { values, text } = await getWorksheetData(token, siteId).catch((err) => { throw new Error(`[Worksheet] ${extractAxiosError(err)}`); });
 
     if (!values || values.length < 2) {
         return { added: 0, updated: 0, skipped: 0 };

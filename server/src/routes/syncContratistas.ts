@@ -23,8 +23,17 @@ router.post('/', authenticateToken, requireRole('admin'), async (req: AuthReques
             omitidos: result.skipped,
         });
     } catch (error: any) {
-        console.error('Error en sincronización de contratistas:', error?.response?.data ?? error?.message ?? error);
-        res.status(500).json({ error: error?.message ?? 'Error al sincronizar contratistas desde SharePoint' });
+        const axiosData = error?.response?.data;
+        // Azure AD devuelve error_description; Graph API devuelve error.message o message
+        const detail: string =
+            axiosData?.error_description ??
+            axiosData?.error?.message ??
+            axiosData?.message ??
+            axiosData?.error ??
+            error?.message ??
+            'Error al sincronizar contratistas desde SharePoint';
+        console.error('Error en sincronización de contratistas:', JSON.stringify(axiosData ?? error?.message));
+        res.status(500).json({ error: detail });
     }
 });
 
