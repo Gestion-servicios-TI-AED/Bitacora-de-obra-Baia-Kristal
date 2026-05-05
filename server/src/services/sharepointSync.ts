@@ -46,6 +46,8 @@ async function getSiteId(token: string): Promise<string> {
         ? `https://graph.microsoft.com/v1.0/sites/${hostname}:${sitePath}`
         : `https://graph.microsoft.com/v1.0/sites/${hostname}`;
 
+    console.log('[SharePoint getSiteId] hostname:', hostname, '| sitePath:', sitePath, '| url:', graphUrl);
+
     const response = await axios.get(graphUrl, { headers: { Authorization: `Bearer ${token}` } });
     return response.data.id as string;
 }
