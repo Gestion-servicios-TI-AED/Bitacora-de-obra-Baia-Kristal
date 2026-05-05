@@ -6,8 +6,9 @@ import CitySearchSelect from '../components/CitySearchSelect';
 import {
     Settings, Building2, Layers, Users, Briefcase, Calendar,
     Plus, Edit, ToggleLeft, ToggleRight, Save, RefreshCw, CheckCircle2,
-    ShieldAlert, UserCog, Shield
+    ShieldAlert, UserCog, Shield, Trash2
 } from 'lucide-react';
+import { useAuthStore } from '../stores/authStore';
 
 type Tab = 'proyectos' | 'torres' | 'usuarios' | 'contratistas' | 'festivos' | 'interventoras' | 'empresas_contratantes';
 
@@ -615,6 +616,8 @@ function UsuariosTab({ showToast }: { showToast: (m: string) => void }) {
 // ── CONTRATISTAS TAB ──
 function ContratistasTab({ showToast }: { showToast: (m: string) => void }) {
     const queryClient = useQueryClient();
+    const { user } = useAuthStore();
+    const isAdmin = user?.tipoUsuario === 'admin';
     const [showForm, setShowForm] = useState(false);
     const [nombre, setNombre] = useState('');
     const [proyectoId, setProyectoId] = useState('');
@@ -643,6 +646,16 @@ function ContratistasTab({ showToast }: { showToast: (m: string) => void }) {
         mutationFn: async ({ id, activo }: { id: string; activo: boolean }) => (await api.put(`/contratistas/${id}`, { activo })).data,
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['contratistas'] }),
     });
+
+    const remove = useMutation({
+        mutationFn: async (id: string) => (await api.delete(`/contratistas/${id}`)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['contratistas'] }); showToast('Contratista eliminado'); },
+    });
+
+    const handleDelete = (id: string, nombre: string) => {
+        if (!confirm(`¿Eliminar permanentemente a "${nombre}"? Esta acción no se puede deshacer.`)) return;
+        remove.mutate(id);
+    };
 
     const handleSync = async () => {
         if (!effectiveFilterProyectoId) {
@@ -698,7 +711,7 @@ function ContratistasTab({ showToast }: { showToast: (m: string) => void }) {
                         Sincronización exitosa —{' '}
                         <strong>{syncResult.agregados}</strong> nuevos ·{' '}
                         <strong>{syncResult.actualizados}</strong> actualizados ·{' '}
-                        <strong>{syncResult.omitidos}</strong> omitidos (sin debida diligencia)
+                        <strong>{syncResult.omitidos}</strong> omitidos (sin debida diligencia o confidencialidad)
                     </span>
                 </div>
             )}
@@ -738,7 +751,7 @@ function ContratistasTab({ showToast }: { showToast: (m: string) => void }) {
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Razón Social / Entidad</th>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Proyecto Vinculado</th>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Venc. SAGRILAFT</th>
-                                <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider text-right">Estatus</th>
+                                <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider text-right">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white">
@@ -757,9 +770,16 @@ function ContratistasTab({ showToast }: { showToast: (m: string) => void }) {
                                             : <span className="text-slate-400 italic text-xs">—</span>}
                                     </td>
                                     <td className="py-3 px-5 text-right">
-                                        <button onClick={() => toggle.mutate({ id: c.id, activo: !c.activo })} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title={c.activo ? "Marcar Inactivo" : "Marcar Activo"}>
-                                            {c.activo ? <ToggleRight className="w-5 h-5 text-emerald-500" /> : <ToggleLeft className="w-5 h-5 text-slate-300" />}
-                                        </button>
+                                        <div className="flex items-center justify-end gap-1">
+                                            <button onClick={() => toggle.mutate({ id: c.id, activo: !c.activo })} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title={c.activo ? "Marcar Inactivo" : "Marcar Activo"}>
+                                                {c.activo ? <ToggleRight className="w-5 h-5 text-emerald-500" /> : <ToggleLeft className="w-5 h-5 text-slate-300" />}
+                                            </button>
+                                            {isAdmin && (
+                                                <button onClick={() => handleDelete(c.id, c.nombre)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar contratista">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

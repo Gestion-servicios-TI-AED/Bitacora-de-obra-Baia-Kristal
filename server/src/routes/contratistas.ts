@@ -42,11 +42,22 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req: AuthRequ
         const data: any = {};
         if (nombre !== undefined) data.nombre = nombre;
         if (activo !== undefined) data.activo = activo;
-        const contratista = await prisma.contratista.update({ where: { id: req.params.id as string }, data });
+        const contratista = await prisma.contratista.update({ where: { id: req.params['id'] as string }, data });
         res.json(contratista);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Error al actualizar contratista' });
+    }
+});
+
+// DELETE /api/contratistas/:id — solo admin
+router.delete('/:id', authenticateToken, requireRole('admin'), async (req: AuthRequest, res: Response) => {
+    try {
+        await prisma.contratista.delete({ where: { id: req.params['id'] as string } });
+        res.json({ message: 'Contratista eliminado' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al eliminar contratista' });
     }
 });
 

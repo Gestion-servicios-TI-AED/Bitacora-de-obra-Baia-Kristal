@@ -109,10 +109,12 @@ export async function syncContratistas(proyectoId: string): Promise<SyncResult> 
 
     const colNombre = headers.findIndex((h) => h === normalize('CONTRATISTA'));
     const colDebida = headers.findIndex((h) => h === normalize('DEBIDA DILIGENCIA'));
+    const colConf   = headers.findIndex((h) => h === normalize('CONFIDENCIALIDAD'));
     const colFecha  = headers.findIndex((h) => h === normalize('FECHA DE VENCIMIENTO SAGRILAFT'));
 
     if (colNombre === -1) throw new Error('Columna "CONTRATISTA" no encontrada en el Excel');
     if (colDebida === -1) throw new Error('Columna "DEBIDA DILIGENCIA" no encontrada en el Excel');
+    if (colConf   === -1) throw new Error('Columna "CONFIDENCIALIDAD" no encontrada en el Excel');
 
     let added = 0, updated = 0, skipped = 0;
 
@@ -122,11 +124,12 @@ export async function syncContratistas(proyectoId: string): Promise<SyncResult> 
 
         const nombre = String(row[colNombre] ?? '').trim();
         const debida = isChecked(row[colDebida]);
+        const conf   = isChecked(row[colConf]);
         const fecha  = colFecha >= 0
             ? normalizeDate(row[colFecha], rowText?.[colFecha] ?? '')
             : null;
 
-        if (!nombre || !debida) {
+        if (!nombre || !debida || !conf) {
             skipped++;
             continue;
         }
