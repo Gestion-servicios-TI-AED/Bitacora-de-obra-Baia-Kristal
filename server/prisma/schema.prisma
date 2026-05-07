@@ -114,6 +114,7 @@ model Bitacora {
   firmaResidenteTimestamp DateTime?
   firmaDirectorData     String?  // JSON string
   firmaDirectorTimestamp  DateTime?
+  comentariosDirector   String?
   firmaInterventorData  String?  // JSON string
   firmaInterventorTimestamp DateTime?
   omitirFirmaResidente  Boolean  @default(false)

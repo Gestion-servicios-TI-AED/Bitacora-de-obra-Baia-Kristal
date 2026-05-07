@@ -99,8 +99,9 @@ router.put('/:id', authenticateToken, upload.fields([
     { name: 'foto2', maxCount: 1 },
 ]), async (req: AuthRequest, res: Response) => {
     try {
-        if (req.user?.tipoUsuario !== 'admin') {
-            res.status(403).json({ error: 'Solo el administrador puede editar actividades registradas' });
+        const rol = req.user?.tipoUsuario;
+        if (rol !== 'admin' && rol !== 'director_obra' && rol !== 'director_obra_general') {
+            res.status(403).json({ error: 'Solo el director o administrador puede editar actividades registradas' });
             return;
         }
         const actividadId = req.params['id'] as string;

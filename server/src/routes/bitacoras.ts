@@ -249,6 +249,12 @@ router.patch('/:id/firma-director', authenticateToken, async (req: AuthRequest, 
             return;
         }
 
+        const { comentariosDirector } = req.body;
+        if (!comentariosDirector?.trim()) {
+            res.status(400).json({ error: 'Los comentarios del director son requeridos para emitir el aval' });
+            return;
+        }
+
         const bitacora = await prisma.bitacora.findUnique({ where: { id: req.params.id as string } });
         if (!bitacora) { res.status(404).json({ error: 'Bitácora no encontrada' }); return; }
 
@@ -270,7 +276,7 @@ router.patch('/:id/firma-director', authenticateToken, async (req: AuthRequest, 
 
         const updated = await prisma.bitacora.update({
             where: { id: req.params.id as string },
-            data: { firmaDirectorData: firmaData, firmaDirectorTimestamp: new Date() },
+            data: { firmaDirectorData: firmaData, firmaDirectorTimestamp: new Date(), comentariosDirector: comentariosDirector.trim() },
         });
 
         const estado = calcularEstadoDiligencia(updated);
