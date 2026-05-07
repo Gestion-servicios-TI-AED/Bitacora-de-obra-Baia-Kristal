@@ -9,7 +9,7 @@ import FirmaDigital from '../components/FirmaDigital';
 import {
     AlertTriangle, CheckCircle2, XCircle,
     Plus, Trash2, Edit, Calendar, Hash, ClipboardList, PenTool, Shield,
-    Lightbulb, AlertCircle, FlaskConical, Image as ImageIcon
+    Lightbulb, AlertCircle, FlaskConical, Image as ImageIcon, Bookmark
 } from 'lucide-react';
 import EnsayoModal from '../components/EnsayoModal';
 
@@ -57,6 +57,9 @@ export default function RegistrarBitacoraPage() {
     const [ensayos, setEnsayos] = useState<any[]>([]);
     const [showEnsayoModal, setShowEnsayoModal] = useState(false);
 
+    // Draft
+    const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+
     // Obtener la fecha de hoy usando la zona horaria local, no UTC (toISOString falla tarde en la noche por el offset)
     const today = new Date();
     const localTodayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -78,6 +81,29 @@ export default function RegistrarBitacoraPage() {
 
     const torres = allTorres.filter((t: any) => t.proyectoId === selectedProjectId);
 
+    const getDraftKey = (tid: string, date: string) => `borrador_bitacora_${tid}_${date}`;
+
+    const saveDraft = () => {
+        if (!torreId) return;
+        const draft = {
+            savedAt: new Date().toISOString(),
+            estadoObra,
+            diaLaborable,
+            razonNoLaboral,
+            explicacionNoLaboral,
+            actividades: actividades.map(({ foto1, foto2, ...rest }: any) => rest),
+            notasGeneralesBitacora,
+            ordenesImpartidas,
+            cambiosAprobados,
+            coordinacionesTecnicas,
+            accidentesFallas,
+            reclamosComunidad,
+            ensayos: ensayos.map(({ anexoFoto, ...rest }: any) => rest),
+        };
+        localStorage.setItem(getDraftKey(torreId, targetDate), JSON.stringify(draft));
+        setDraftSavedAt(draft.savedAt);
+    };
+
     // Check if tower has existing registration
     const checkTorre = useCallback(async (id: string) => {
         if (!id) return;
@@ -89,6 +115,26 @@ export default function RegistrarBitacoraPage() {
                 setTorreBlocked(false);
                 const folioRes = await api.get(`/folios/siguiente?torre_id=${id}&fecha=${targetDate}`);
                 setFolio(folioRes.data.folio);
+                // Auto-load draft if one exists for this frente + date
+                const saved = localStorage.getItem(`borrador_bitacora_${id}_${targetDate}`);
+                if (saved) {
+                    try {
+                        const draft = JSON.parse(saved);
+                        setEstadoObra(draft.estadoObra || '');
+                        setDiaLaborable(draft.diaLaborable ?? null);
+                        setRazonNoLaboral(draft.razonNoLaboral || '');
+                        setExplicacionNoLaboral(draft.explicacionNoLaboral || '');
+                        setActividades(draft.actividades || []);
+                        setNotasGeneralesBitacora(draft.notasGeneralesBitacora || '');
+                        setOrdenesImpartidas(draft.ordenesImpartidas || '');
+                        setCambiosAprobados(draft.cambiosAprobados || '');
+                        setCoordinacionesTecnicas(draft.coordinacionesTecnicas || '');
+                        setAccidentesFallas(draft.accidentesFallas || '');
+                        setReclamosComunidad(draft.reclamosComunidad || '');
+                        setEnsayos(draft.ensayos || []);
+                        setDraftSavedAt(draft.savedAt);
+                    } catch { /* borrador corrupto, ignorar */ }
+                }
             }
         } catch (e) {
             console.error(e);
@@ -180,6 +226,10 @@ export default function RegistrarBitacoraPage() {
                 }
             }
 
+
+            // Clear draft on successful save
+            localStorage.removeItem(getDraftKey(torreId, targetDate));
+            setDraftSavedAt(null);
 
             setSuccessMsg('¡Bitácora registrada exitosamente al folio correspondiente!');
             // Reset form
@@ -307,6 +357,14 @@ export default function RegistrarBitacoraPage() {
 
             {torreId && !torreBlocked && (
                 <>
+                    {draftSavedAt && (
+                        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl mb-6 animate-fadeIn">
+                            <Bookmark className="w-5 h-5 text-amber-600 shrink-0" />
+                            <p className="text-sm font-medium">
+                                Borrador cargado — guardado el {new Date(draftSavedAt).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                        </div>
+                    )}
                     {/* Estado de obra */}
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 mb-6 animate-fadeIn">
                         <label className="flex items-center gap-2 text-[15px] font-semibold text-slate-800 mb-4">
@@ -771,6 +829,13 @@ export default function RegistrarBitacoraPage() {
                                     Por favor complete todos los campos requeridos y estampe su firma.
                                 </span>
                             )}
+                            <button
+                                onClick={saveDraft}
+                                className="w-full sm:w-auto px-6 py-3.5 rounded-xl text-sm font-bold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm transition-all duration-200 flex items-center justify-center gap-2"
+                            >
+                                <Bookmark className="w-5 h-5" />
+                                {draftSavedAt ? 'Actualizar Borrador' : 'Guardar Borrador'}
+                            </button>
                             <button
                                 onClick={handleSave}
                                 disabled={!canSave || saving}
