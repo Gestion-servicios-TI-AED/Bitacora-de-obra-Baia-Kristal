@@ -59,6 +59,7 @@ export default function RegistrarBitacoraPage() {
 
     // Draft
     const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+    const [draftMsg, setDraftMsg] = useState('');
 
     // Obtener la fecha de hoy usando la zona horaria local, no UTC (toISOString falla tarde en la noche por el offset)
     const today = new Date();
@@ -102,6 +103,13 @@ export default function RegistrarBitacoraPage() {
         };
         localStorage.setItem(getDraftKey(torreId, targetDate), JSON.stringify(draft));
         setDraftSavedAt(draft.savedAt);
+        setDraftMsg('Borrador guardado correctamente');
+        setTimeout(() => setDraftMsg(''), 3000);
+    };
+
+    const clearDraft = () => {
+        if (torreId) localStorage.removeItem(getDraftKey(torreId, targetDate));
+        setDraftSavedAt(null);
     };
 
     // Check if tower has existing registration
@@ -360,9 +368,16 @@ export default function RegistrarBitacoraPage() {
                     {draftSavedAt && (
                         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl mb-6 animate-fadeIn">
                             <Bookmark className="w-5 h-5 text-amber-600 shrink-0" />
-                            <p className="text-sm font-medium">
+                            <p className="text-sm font-medium flex-1">
                                 Borrador cargado — guardado el {new Date(draftSavedAt).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                             </p>
+                            <button
+                                onClick={clearDraft}
+                                title="Borrar borrador"
+                                className="p-1.5 rounded-lg text-amber-600 hover:text-amber-900 hover:bg-amber-100 transition-colors shrink-0"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
                         </div>
                     )}
                     {/* Estado de obra */}
@@ -824,7 +839,11 @@ export default function RegistrarBitacoraPage() {
                     {/* Save Action Block container */}
                     {diaLaborable !== null && (
                         <div className="flex flex-col sm:flex-row justify-end items-center gap-4 bg-slate-50 border border-slate-200/80 p-5 rounded-2xl shadow-inner mb-8 mt-2">
-                            {!canSave && (
+                            {draftMsg ? (
+                                <span className="text-sm text-emerald-600 font-semibold mr-auto flex items-center gap-1.5 animate-fadeIn">
+                                    <CheckCircle2 className="w-4 h-4 shrink-0" /> {draftMsg}
+                                </span>
+                            ) : !canSave && (
                                 <span className="text-sm text-slate-500 font-medium mr-auto hidden md:block">
                                     Por favor complete todos los campos requeridos y estampe su firma.
                                 </span>
