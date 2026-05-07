@@ -202,7 +202,7 @@ export default function DetalleBitacoraPage() {
     }
 
     const canSignDirector = (user?.tipoUsuario === 'director_obra' || user?.tipoUsuario === 'director_obra_general') && !bitacora.firmaDirectorData;
-    const canSignInterventor = user?.tipoUsuario === 'interventoria' && !bitacora.firmaInterventorData;
+    const canSignInterventor = (user?.tipoUsuario === 'interventoria' || user?.tipoUsuario === 'director_obra_general') && !bitacora.firmaInterventorData;
 
     const directorAsignado = bitacora.torre?.usuarioTorres?.find(
         (ut: any) => ut.usuario?.tipoUsuario === 'director_obra' || ut.usuario?.tipoUsuario === 'director_obra_general'

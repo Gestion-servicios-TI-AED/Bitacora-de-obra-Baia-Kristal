@@ -256,6 +256,7 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
     const [etapaConstructiva, setEtapaConstructiva] = useState('');
     const [frente, setFrente] = useState('');
     const [proyectoId, setProyectoId] = useState('');
+    const [folioInicial, setFolioInicial] = useState(1);
     const [filterProyectoId, setFilterProyectoId] = useState('');
     const { selectedProjectId } = useProjectStore();
 
@@ -277,7 +278,7 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
 
     const save = useMutation({
         mutationFn: async () => {
-            const payload = { nombre: nombreGenerado, abreviatura, etapaConstructiva, frente };
+            const payload = { nombre: nombreGenerado, abreviatura, etapaConstructiva, frente, folioActual: folioInicial - 1 };
             if (editId) return (await api.put(`/torres/${editId}`, payload)).data;
             return (await api.post('/torres', { ...payload, proyectoId })).data;
         },
@@ -300,12 +301,12 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
 
     const resetForm = () => {
         setShowForm(false); setEditId(null); setAbreviatura('');
-        setEtapaConstructiva(''); setFrente(''); setProyectoId('');
+        setEtapaConstructiva(''); setFrente(''); setProyectoId(''); setFolioInicial(1);
     };
     const startEdit = (t: any) => {
         setEditId(t.id); setAbreviatura(t.abreviatura || '');
         setEtapaConstructiva(t.etapaConstructiva || ''); setFrente(t.frente || '');
-        setProyectoId(t.proyectoId); setShowForm(true);
+        setProyectoId(t.proyectoId); setFolioInicial((t.folioActual || 0) + 1); setShowForm(true);
     };
     const handleNew = () => {
         resetForm();
@@ -361,6 +362,11 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
                         <div>
                             <label className={labelClasses}>Abreviatura</label>
                             <input value={abreviatura} onChange={(e) => setAbreviatura(e.target.value.toUpperCase())} className={inputClasses} placeholder="Ej: KL1" maxLength={10} />
+                        </div>
+                        <div>
+                            <label className={labelClasses}>Primer folio digital</label>
+                            <input type="number" min={1} value={folioInicial} onChange={(e) => setFolioInicial(Math.max(1, parseInt(e.target.value) || 1))} className={inputClasses} placeholder="1" />
+                            <p className="text-xs text-slate-400 mt-1">Si ya existen bitácoras en papel, ingresa el número desde el que debe continuar la numeración.</p>
                         </div>
                     </div>
                     <div className="flex gap-3 justify-end pt-2 border-t border-slate-200/60">
@@ -541,7 +547,7 @@ function UsuariosTab({ showToast }: { showToast: (m: string) => void }) {
                                 <option value="admin">Administrador del Sistema</option>
                             </select>
                         </div>
-                        {form.tipoUsuario === 'interventoria' && (
+                        {(form.tipoUsuario === 'interventoria' || form.tipoUsuario === 'director_obra_general') && (
                             <div className="lg:col-span-1">
                                 <label className={labelClasses}>Empresa de Interventoría</label>
                                 <select value={form.empresaInterventoriaId} onChange={(e) => setForm({ ...form, empresaInterventoriaId: e.target.value })} className={selectClasses}>

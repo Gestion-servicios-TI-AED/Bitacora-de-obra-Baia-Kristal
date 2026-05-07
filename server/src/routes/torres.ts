@@ -41,13 +41,14 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
 // POST /api/torres
 router.post('/', authenticateToken, requireRole('admin'), async (req: AuthRequest, res: Response) => {
     try {
-        const { nombre, proyectoId, abreviatura, etapaConstructiva, frente } = req.body;
+        const { nombre, proyectoId, abreviatura, etapaConstructiva, frente, folioActual } = req.body;
         const torre = await prisma.torre.create({
             data: {
                 nombre, proyectoId,
                 abreviatura: abreviatura || null,
                 etapaConstructiva: etapaConstructiva || null,
                 frente: frente || null,
+                folioActual: folioActual !== undefined ? Number(folioActual) : 0,
             },
         });
         res.status(201).json(torre);
@@ -60,13 +61,14 @@ router.post('/', authenticateToken, requireRole('admin'), async (req: AuthReques
 // PUT /api/torres/:id
 router.put('/:id', authenticateToken, requireRole('admin'), async (req: AuthRequest, res: Response) => {
     try {
-        const { nombre, activo, abreviatura, etapaConstructiva, frente } = req.body;
+        const { nombre, activo, abreviatura, etapaConstructiva, frente, folioActual } = req.body;
         const data: any = {};
         if (nombre !== undefined) data.nombre = nombre;
         if (abreviatura !== undefined) data.abreviatura = abreviatura || null;
         if (etapaConstructiva !== undefined) data.etapaConstructiva = etapaConstructiva || null;
         if (frente !== undefined) data.frente = frente || null;
         if (activo !== undefined) data.activo = activo;
+        if (folioActual !== undefined) data.folioActual = Number(folioActual);
         const torre = await prisma.torre.update({ where: { id: req.params.id as string }, data });
         res.json(torre);
     } catch (error) {

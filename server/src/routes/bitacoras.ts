@@ -131,7 +131,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
             take: 1,
         });
 
-        let nextFolio = 1;
+        let nextFolio = (torre.folioActual || 0) + 1;
         if (lastFolio.length > 0) {
             const lastDate = new Date(lastFolio[0]!.fecha);
             const currentDate = new Date(fecha);
@@ -290,8 +290,8 @@ router.patch('/:id/firma-director', authenticateToken, async (req: AuthRequest, 
 router.patch('/:id/firma-interventor', authenticateToken, async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user!;
-        if (user.tipoUsuario !== 'interventoria') {
-            res.status(403).json({ error: 'Solo el interventor puede firmar aquí' });
+        if (user.tipoUsuario !== 'interventoria' && user.tipoUsuario !== 'director_obra_general') {
+            res.status(403).json({ error: 'Solo el interventor o director general puede firmar aquí' });
             return;
         }
 
