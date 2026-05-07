@@ -252,7 +252,6 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
     const isAdmin = user?.tipoUsuario === 'admin';
     const [showForm, setShowForm] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
-    const [nombre, setNombre] = useState('');
     const [abreviatura, setAbreviatura] = useState('');
     const [etapaConstructiva, setEtapaConstructiva] = useState('');
     const [frente, setFrente] = useState('');
@@ -261,6 +260,9 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
     const { selectedProjectId } = useProjectStore();
 
     const effectiveFilterProyectoId = SINGLE_PROJECT_MODE ? (selectedProjectId || '') : filterProyectoId;
+
+    // nombre is always auto-computed from etapaConstructiva + frente
+    const nombreGenerado = [etapaConstructiva, frente].filter(Boolean).join(' - ');
 
     const { data: proyectos = [] } = useQuery({ queryKey: ['proyectos'], queryFn: async () => (await api.get('/proyectos')).data });
     const { data: torres = [] } = useQuery({
@@ -275,7 +277,7 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
 
     const save = useMutation({
         mutationFn: async () => {
-            const payload = { nombre, abreviatura, etapaConstructiva, frente };
+            const payload = { nombre: nombreGenerado, abreviatura, etapaConstructiva, frente };
             if (editId) return (await api.put(`/torres/${editId}`, payload)).data;
             return (await api.post('/torres', { ...payload, proyectoId })).data;
         },
@@ -297,11 +299,11 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
     });
 
     const resetForm = () => {
-        setShowForm(false); setEditId(null); setNombre(''); setAbreviatura('');
+        setShowForm(false); setEditId(null); setAbreviatura('');
         setEtapaConstructiva(''); setFrente(''); setProyectoId('');
     };
     const startEdit = (t: any) => {
-        setEditId(t.id); setNombre(t.nombre); setAbreviatura(t.abreviatura || '');
+        setEditId(t.id); setAbreviatura(t.abreviatura || '');
         setEtapaConstructiva(t.etapaConstructiva || ''); setFrente(t.frente || '');
         setProyectoId(t.proyectoId); setShowForm(true);
     };
@@ -330,9 +332,11 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
 
             {showForm && (
                 <div className="border border-slate-200/80 rounded-2xl p-5 mb-6 bg-slate-50/50 shadow-sm animate-fadeIn">
-                    <h3 className="text-sm font-semibold text-slate-800 mb-4">{editId ? 'Editar Frente' : 'Registrar Nuevo Frente'}</h3>
+                    <h3 className="text-sm font-semibold text-slate-800 mb-1">{editId ? 'Editar Frente' : 'Registrar Nuevo Frente'}</h3>
+                    {nombreGenerado && (
+                        <p className="text-xs text-slate-500 mb-4">Vista previa: <span className="font-bold text-primary">{nombreGenerado}</span></p>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-                        {/* Proyecto — read-only display in single-project mode */}
                         <div>
                             <label className={labelClasses}>Proyecto</label>
                             {SINGLE_PROJECT_MODE ? (
@@ -347,25 +351,21 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
                             )}
                         </div>
                         <div>
-                            <label className={labelClasses}>Nombre del Frente</label>
-                            <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClasses} placeholder="Ej: Torre 1, Bloque A" />
+                            <label className={labelClasses}>Etapa Constructiva <span className="text-rose-500">*</span></label>
+                            <input value={etapaConstructiva} onChange={(e) => setEtapaConstructiva(e.target.value.toUpperCase())} className={inputClasses} placeholder="Ej: ETAPA 3" />
                         </div>
                         <div>
-                            <label className={labelClasses}>Etapa Constructiva</label>
-                            <input value={etapaConstructiva} onChange={(e) => setEtapaConstructiva(e.target.value)} className={inputClasses} placeholder="Ej: Estructura, Acabados, Cimentación" />
-                        </div>
-                        <div>
-                            <label className={labelClasses}>Frente</label>
-                            <input value={frente} onChange={(e) => setFrente(e.target.value)} className={inputClasses} placeholder="Ej: Frente Norte, Zona húmeda" />
+                            <label className={labelClasses}>Frente <span className="text-rose-500">*</span></label>
+                            <input value={frente} onChange={(e) => setFrente(e.target.value.toUpperCase())} className={inputClasses} placeholder="Ej: KALA 1" />
                         </div>
                         <div>
                             <label className={labelClasses}>Abreviatura</label>
-                            <input value={abreviatura} onChange={(e) => setAbreviatura(e.target.value.toUpperCase())} className={inputClasses} placeholder="Ej: T1, BA" maxLength={10} />
+                            <input value={abreviatura} onChange={(e) => setAbreviatura(e.target.value.toUpperCase())} className={inputClasses} placeholder="Ej: KL1" maxLength={10} />
                         </div>
                     </div>
                     <div className="flex gap-3 justify-end pt-2 border-t border-slate-200/60">
                         <button onClick={resetForm} className={btnSecondary}>Cancelar</button>
-                        <button onClick={() => save.mutate()} disabled={!nombre || !proyectoId} className={btnPrimary}>
+                        <button onClick={() => save.mutate()} disabled={!etapaConstructiva || !frente || !proyectoId} className={btnPrimary}>
                             <Save className="w-4 h-4" /> {editId ? 'Actualizar' : 'Guardar'}
                         </button>
                     </div>
@@ -377,9 +377,8 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
                     <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50/80 border-b border-slate-200/80">
                             <tr>
-                                <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Frente</th>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Etapa Constructiva</th>
-                                <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Frente Específico</th>
+                                <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Frente</th>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Abrev.</th>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Proyecto</th>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider text-right">Acciones</th>
@@ -391,11 +390,10 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
                                     <td className="py-3.5 px-5">
                                         <div className="flex items-center gap-2.5">
                                             <div className={`w-2 h-2 rounded-full shrink-0 ${t.activo ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                                            <span className="font-semibold text-slate-900">{t.nombre}</span>
+                                            <span className="font-semibold text-slate-900">{t.etapaConstructiva || <span className="text-slate-400 italic text-xs font-normal">—</span>}</span>
                                         </div>
                                     </td>
-                                    <td className="py-3.5 px-5 text-slate-600">{t.etapaConstructiva || <span className="text-slate-400 italic text-xs">—</span>}</td>
-                                    <td className="py-3.5 px-5 text-slate-600">{t.frente || <span className="text-slate-400 italic text-xs">—</span>}</td>
+                                    <td className="py-3.5 px-5 font-semibold text-slate-800">{t.frente || <span className="text-slate-400 italic text-xs font-normal">—</span>}</td>
                                     <td className="py-3.5 px-5">
                                         {t.abreviatura
                                             ? <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200">{t.abreviatura}</span>
@@ -420,7 +418,7 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
                                 </tr>
                             ))}
                             {torres.length === 0 && (
-                                <tr><td colSpan={6} className="py-12 text-center text-slate-500 bg-slate-50">No hay frentes registrados para este filtro.</td></tr>
+                                <tr><td colSpan={5} className="py-12 text-center text-slate-500 bg-slate-50">No hay frentes registrados para este filtro.</td></tr>
                             )}
                         </tbody>
                     </table>
