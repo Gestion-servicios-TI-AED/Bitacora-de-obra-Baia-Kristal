@@ -117,6 +117,7 @@ model Bitacora {
   comentariosDirector   String?
   firmaInterventorData  String?  // JSON string
   firmaInterventorTimestamp DateTime?
+  comentariosInterventor String?
   omitirFirmaResidente  Boolean  @default(false)
   notasGenerales        String?
   ordenesImpartidas     String?

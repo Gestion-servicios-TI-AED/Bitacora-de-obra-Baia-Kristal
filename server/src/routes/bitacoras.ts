@@ -301,6 +301,12 @@ router.patch('/:id/firma-interventor', authenticateToken, async (req: AuthReques
             return;
         }
 
+        const { comentariosInterventor } = req.body;
+        if (!comentariosInterventor?.trim()) {
+            res.status(400).json({ error: 'Los comentarios del interventor son requeridos para emitir el aval' });
+            return;
+        }
+
         const bitacora = await prisma.bitacora.findUnique({ where: { id: req.params.id as string } });
         if (!bitacora) { res.status(404).json({ error: 'Bitácora no encontrada' }); return; }
 
@@ -321,7 +327,7 @@ router.patch('/:id/firma-interventor', authenticateToken, async (req: AuthReques
 
         const updated = await prisma.bitacora.update({
             where: { id: req.params.id as string },
-            data: { firmaInterventorData: firmaData, firmaInterventorTimestamp: new Date() },
+            data: { firmaInterventorData: firmaData, firmaInterventorTimestamp: new Date(), comentariosInterventor: comentariosInterventor.trim() },
         });
 
         const estado = calcularEstadoDiligencia(updated);
