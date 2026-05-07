@@ -614,7 +614,7 @@ function UsuariosTab({ showToast }: { showToast: (m: string) => void }) {
                         <thead className="bg-slate-50/80 border-b border-slate-200/80">
                             <tr>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Perfil de Usuario</th>
-                                <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Contacto / Cédula</th>
+                                <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Correo / Cédula</th>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Rol de Sistema</th>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider text-right">Acciones</th>
                             </tr>
@@ -622,47 +622,47 @@ function UsuariosTab({ showToast }: { showToast: (m: string) => void }) {
                         <tbody className="divide-y divide-slate-100 bg-white">
                             {usuarios.map((u: any) => (
                                 <tr key={u.id} className="hover:bg-slate-50/80 transition-colors duration-150 group">
+                                    {/* Col 1 — Perfil: avatar + nombre + cargo + empresa (if interventor) */}
                                     <td className="py-3.5 px-5">
                                         <div className="flex items-center gap-3">
                                             <div className="hidden sm:flex w-9 h-9 rounded-full bg-primary/10 items-center justify-center text-primary border border-primary/20 shrink-0">
                                                 {u.tipoUsuario === 'admin' ? <ShieldAlert className="w-4 h-4" /> : <UserCog className="w-4 h-4" />}
                                             </div>
-                                            <div className="flex flex-col">
+                                            <div className="flex flex-col gap-0.5">
                                                 <div className="flex items-center gap-2">
-                                                    <div className={`w-1.5 h-1.5 rounded-full ${u.activo ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
+                                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${u.activo ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                                                     <span className="font-semibold text-slate-900">{u.nombre} {u.apellido}</span>
                                                 </div>
-                                                <span className="text-xs text-slate-500 truncate max-w-[200px]">{u.cargo || 'Sin cargo definido'}</span>
+                                                <span className="text-xs text-slate-500">{u.cargo || <span className="italic">Sin cargo definido</span>}</span>
+                                                {u.empresaInterventoria?.nombre && (
+                                                    <div className="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 w-fit mt-0.5">
+                                                        <Shield className="w-3 h-3" />
+                                                        <span className="text-[10px] font-bold">{u.empresaInterventoria.nombre}</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </td>
+                                    {/* Col 2 — Correo / Cédula */}
                                     <td className="py-3.5 px-5">
-                                        {u.empresaInterventoria?.nombre ? (
-                                            <div className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100/50 w-fit">
-                                                <Shield className="w-3.5 h-3.5" />
-                                                <span className="text-[11px] font-bold tracking-tight">{u.empresaInterventoria.nombre}</span>
-                                            </div>
-                                        ) : u.tipoUsuario === 'interventoria' ? (
-                                            <span className="text-slate-400 italic text-[11px]">Sin empresa asignada</span>
-                                        ) : null}
-                                    </td>
-                                    <td className="py-3.5 px-5">
-                                        <div className="flex flex-col">
+                                        <div className="flex flex-col gap-0.5">
                                             <span className="font-medium text-slate-700">{u.email}</span>
-                                            <span className="text-xs text-slate-500">ID: {u.cedula || 'N/A'}</span>
+                                            <span className="text-xs text-slate-500">CC: {u.cedula || <span className="italic">N/A</span>}</span>
                                         </div>
                                     </td>
+                                    {/* Col 3 — Rol */}
                                     <td className="py-3.5 px-5">
                                         <span className={`inline-flex px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide ${getRoleBadgeClasses(u.tipoUsuario)}`}>
                                             {tipoLabels[u.tipoUsuario] || u.tipoUsuario}
                                         </span>
                                     </td>
+                                    {/* Col 4 — Acciones */}
                                     <td className="py-3.5 px-5 text-right">
                                         <div className="flex items-center justify-end gap-2">
-                                            <button onClick={() => startEdit(u)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors tooltip-trigger" title="Editar Rol y Permisos">
+                                            <button onClick={() => startEdit(u)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="Editar">
                                                 <Edit className="w-4 h-4" />
                                             </button>
-                                            <button onClick={() => toggle.mutate({ id: u.id, activo: !u.activo })} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title={u.activo ? "Quitar Acceso" : "Restaurar Acceso"}>
+                                            <button onClick={() => toggle.mutate({ id: u.id, activo: !u.activo })} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title={u.activo ? 'Quitar Acceso' : 'Restaurar Acceso'}>
                                                 {u.activo ? <ToggleRight className="w-5 h-5 text-emerald-500" /> : <ToggleLeft className="w-5 h-5 text-slate-300" />}
                                             </button>
                                         </div>
