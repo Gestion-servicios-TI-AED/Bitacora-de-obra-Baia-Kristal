@@ -20,7 +20,7 @@ export default function ConfiguracionPage() {
 
     const tabs: { key: Tab; label: string; icon: any }[] = [
         { key: 'proyectos', label: 'Proyectos', icon: Building2 },
-        { key: 'torres', label: 'Torres', icon: Layers },
+        { key: 'torres', label: 'Frentes', icon: Layers },
         { key: 'usuarios', label: 'Usuarios', icon: Users },
         { key: 'contratistas', label: 'Contratistas', icon: Briefcase },
         { key: 'interventoras', label: 'Empresas Interventoras', icon: Briefcase },
@@ -245,18 +245,21 @@ function ProyectosTab({ showToast }: { showToast: (m: string) => void }) {
     );
 }
 
-// ── TORRES TAB ──
+// ── FRENTES TAB ──
 function TorresTab({ showToast }: { showToast: (m: string) => void }) {
     const queryClient = useQueryClient();
+    const { user } = useAuthStore();
+    const isAdmin = user?.tipoUsuario === 'admin';
     const [showForm, setShowForm] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
     const [nombre, setNombre] = useState('');
     const [abreviatura, setAbreviatura] = useState('');
+    const [etapaConstructiva, setEtapaConstructiva] = useState('');
+    const [frente, setFrente] = useState('');
     const [proyectoId, setProyectoId] = useState('');
     const [filterProyectoId, setFilterProyectoId] = useState('');
     const { selectedProjectId } = useProjectStore();
 
-    // In single-project mode, lock filters to the active project
     const effectiveFilterProyectoId = SINGLE_PROJECT_MODE ? (selectedProjectId || '') : filterProyectoId;
 
     const { data: proyectos = [] } = useQuery({ queryKey: ['proyectos'], queryFn: async () => (await api.get('/proyectos')).data });
@@ -268,17 +271,18 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
         },
     });
 
+    const selectedProyecto = proyectos.find((p: any) => p.id === (SINGLE_PROJECT_MODE ? selectedProjectId : proyectoId));
+
     const save = useMutation({
         mutationFn: async () => {
-            if (editId) {
-                return (await api.put(`/torres/${editId}`, { nombre, abreviatura })).data;
-            }
-            return (await api.post('/torres', { nombre, abreviatura, proyectoId })).data;
+            const payload = { nombre, abreviatura, etapaConstructiva, frente };
+            if (editId) return (await api.put(`/torres/${editId}`, payload)).data;
+            return (await api.post('/torres', { ...payload, proyectoId })).data;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['torres'] });
             resetForm();
-            showToast(editId ? 'Torre actualizada' : 'Torre creada');
+            showToast(editId ? 'Frente actualizado' : 'Frente creado');
         },
     });
 
@@ -287,15 +291,31 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['torres'] }),
     });
 
-    const resetForm = () => { setShowForm(false); setEditId(null); setNombre(''); setAbreviatura(''); setProyectoId(''); };
-    const startEdit = (t: any) => { setEditId(t.id); setNombre(t.nombre); setAbreviatura(t.abreviatura || ''); setProyectoId(t.proyectoId); setShowForm(true); };
+    const remove = useMutation({
+        mutationFn: async (id: string) => (await api.delete(`/torres/${id}`)).data,
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['torres'] }); showToast('Frente eliminado'); },
+    });
+
+    const resetForm = () => {
+        setShowForm(false); setEditId(null); setNombre(''); setAbreviatura('');
+        setEtapaConstructiva(''); setFrente(''); setProyectoId('');
+    };
+    const startEdit = (t: any) => {
+        setEditId(t.id); setNombre(t.nombre); setAbreviatura(t.abreviatura || '');
+        setEtapaConstructiva(t.etapaConstructiva || ''); setFrente(t.frente || '');
+        setProyectoId(t.proyectoId); setShowForm(true);
+    };
+    const handleNew = () => {
+        resetForm();
+        if (SINGLE_PROJECT_MODE && selectedProjectId) setProyectoId(selectedProjectId);
+        setShowForm(true);
+    };
 
     return (
         <div className="p-4 sm:p-0">
             <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    <h2 className="text-lg font-semibold text-slate-800">Catálogo de Torres</h2>
-                    {/* Project filter — hidden in single-project mode */}
+                    <h2 className="text-lg font-semibold text-slate-800">Catálogo de Frentes</h2>
                     {!SINGLE_PROJECT_MODE && (
                         <select value={filterProyectoId} onChange={(e) => setFilterProyectoId(e.target.value)} className="px-3.5 py-2 bg-white border border-slate-200 shadow-sm rounded-xl text-sm min-w-[200px] focus:outline-none focus:ring-2 focus:ring-primary/20">
                             <option value="">Filtrar por proyecto (Todos)</option>
@@ -303,32 +323,44 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
                         </select>
                     )}
                 </div>
-                <button onClick={() => { resetForm(); if (SINGLE_PROJECT_MODE && selectedProjectId) setProyectoId(selectedProjectId); setShowForm(true); }} className={btnPrimary}>
-                    <Plus className="w-4 h-4" /> Nueva Torre
+                <button onClick={handleNew} className={btnPrimary}>
+                    <Plus className="w-4 h-4" /> Nuevo Frente
                 </button>
             </div>
 
             {showForm && (
                 <div className="border border-slate-200/80 rounded-2xl p-5 mb-6 bg-slate-50/50 shadow-sm animate-fadeIn">
-                    <h3 className="text-sm font-medium text-slate-800 mb-4">{editId ? 'Editar Torre' : 'Registrar Nueva Torre'}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-                        {/* Project selector — hidden in single-project mode (auto-set) */}
-                        {!SINGLE_PROJECT_MODE && (
-                            <div>
-                                <label className={labelClasses}>Proyecto Asociado</label>
+                    <h3 className="text-sm font-semibold text-slate-800 mb-4">{editId ? 'Editar Frente' : 'Registrar Nuevo Frente'}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                        {/* Proyecto — read-only display in single-project mode */}
+                        <div>
+                            <label className={labelClasses}>Proyecto</label>
+                            {SINGLE_PROJECT_MODE ? (
+                                <div className={`${inputClasses} bg-slate-100 text-slate-500 cursor-not-allowed`}>
+                                    {selectedProyecto?.nombre || 'Proyecto activo'}
+                                </div>
+                            ) : (
                                 <select value={proyectoId} onChange={(e) => setProyectoId(e.target.value)} className={selectClasses} disabled={!!editId}>
                                     <option value="">Seleccionar proyecto...</option>
                                     {proyectos.map((p: any) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                                 </select>
-                            </div>
-                        )}
+                            )}
+                        </div>
                         <div>
-                            <label className={labelClasses}>Nombre de la Torre</label>
-                            <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClasses} placeholder="Ej: Torre 1, Kala 3" />
+                            <label className={labelClasses}>Nombre del Frente</label>
+                            <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClasses} placeholder="Ej: Torre 1, Bloque A" />
+                        </div>
+                        <div>
+                            <label className={labelClasses}>Etapa Constructiva</label>
+                            <input value={etapaConstructiva} onChange={(e) => setEtapaConstructiva(e.target.value)} className={inputClasses} placeholder="Ej: Estructura, Acabados, Cimentación" />
+                        </div>
+                        <div>
+                            <label className={labelClasses}>Frente</label>
+                            <input value={frente} onChange={(e) => setFrente(e.target.value)} className={inputClasses} placeholder="Ej: Frente Norte, Zona húmeda" />
                         </div>
                         <div>
                             <label className={labelClasses}>Abreviatura</label>
-                            <input value={abreviatura} onChange={(e) => setAbreviatura(e.target.value.toUpperCase())} className={inputClasses} placeholder="Ej: KL3" maxLength={10} />
+                            <input value={abreviatura} onChange={(e) => setAbreviatura(e.target.value.toUpperCase())} className={inputClasses} placeholder="Ej: T1, BA" maxLength={10} />
                         </div>
                     </div>
                     <div className="flex gap-3 justify-end pt-2 border-t border-slate-200/60">
@@ -342,48 +374,53 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
 
             <div className="border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left whitespace-nowrap">
+                    <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50/80 border-b border-slate-200/80">
                             <tr>
-                                <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Torre</th>
+                                <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Frente</th>
+                                <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Etapa Constructiva</th>
+                                <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Frente Específico</th>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Abrev.</th>
-                                <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Proyecto Pertenece</th>
+                                <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Proyecto</th>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider text-right">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white">
                             {torres.map((t: any) => (
-                                <tr key={t.id} className="hover:bg-slate-50/80 transition-colors duration-150 group">
+                                <tr key={t.id} className="hover:bg-slate-50/80 transition-colors duration-150">
                                     <td className="py-3.5 px-5">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-2 h-2 rounded-full ${t.activo ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
+                                        <div className="flex items-center gap-2.5">
+                                            <div className={`w-2 h-2 rounded-full shrink-0 ${t.activo ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                                             <span className="font-semibold text-slate-900">{t.nombre}</span>
                                         </div>
                                     </td>
+                                    <td className="py-3.5 px-5 text-slate-600">{t.etapaConstructiva || <span className="text-slate-400 italic text-xs">—</span>}</td>
+                                    <td className="py-3.5 px-5 text-slate-600">{t.frente || <span className="text-slate-400 italic text-xs">—</span>}</td>
                                     <td className="py-3.5 px-5">
-                                        {t.abreviatura ? <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200 border border-slate-300/50">{t.abreviatura}</span> : <span className="text-slate-400 italic text-xs">N/A</span>}
+                                        {t.abreviatura
+                                            ? <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200">{t.abreviatura}</span>
+                                            : <span className="text-slate-400 italic text-xs">—</span>}
                                     </td>
-                                    <td className="py-3.5 px-5 text-slate-600 font-medium">
-                                        {t.proyecto?.nombre}
-                                    </td>
+                                    <td className="py-3.5 px-5 text-slate-600 font-medium">{t.proyecto?.nombre}</td>
                                     <td className="py-3.5 px-5 text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <button onClick={() => startEdit(t)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors tooltip-trigger" title="Editar">
+                                        <div className="flex items-center justify-end gap-1">
+                                            <button onClick={() => startEdit(t)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="Editar">
                                                 <Edit className="w-4 h-4" />
                                             </button>
-                                            <button onClick={() => toggle.mutate({ id: t.id, activo: !t.activo })} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title={t.activo ? "Inactivar" : "Activar"}>
+                                            <button onClick={() => toggle.mutate({ id: t.id, activo: !t.activo })} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title={t.activo ? 'Inactivar' : 'Activar'}>
                                                 {t.activo ? <ToggleRight className="w-5 h-5 text-emerald-500" /> : <ToggleLeft className="w-5 h-5 text-slate-300" />}
                                             </button>
+                                            {isAdmin && (
+                                                <button onClick={() => { if (confirm(`¿Eliminar permanentemente el frente "${t.nombre}"?`)) remove.mutate(t.id); }} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Eliminar">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
                             ))}
                             {torres.length === 0 && (
-                                <tr>
-                                    <td colSpan={4} className="py-12 text-center text-slate-500 bg-slate-50">
-                                        No hay torres registradas para este filtro.
-                                    </td>
-                                </tr>
+                                <tr><td colSpan={6} className="py-12 text-center text-slate-500 bg-slate-50">No hay frentes registrados para este filtro.</td></tr>
                             )}
                         </tbody>
                     </table>
@@ -480,8 +517,12 @@ function UsuariosTab({ showToast }: { showToast: (m: string) => void }) {
                             <input value={form.apellido} onChange={(e) => setForm({ ...form, apellido: e.target.value })} className={inputClasses} placeholder="Apellido(s)" />
                         </div>
                         <div className="lg:col-span-1">
-                            <label className={labelClasses}>Cédula</label>
-                            <input value={form.cedula} onChange={(e) => setForm({ ...form, cedula: e.target.value })} className={inputClasses} placeholder="Documento" />
+                            <label className={labelClasses}>Cédula <span className="text-rose-500">*</span></label>
+                            <input value={form.cedula} onChange={(e) => setForm({ ...form, cedula: e.target.value })} className={inputClasses} placeholder="Documento de identidad" />
+                        </div>
+                        <div className="lg:col-span-1">
+                            <label className={labelClasses}>Cargo / Título del Perfil</label>
+                            <input value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} className={inputClasses} placeholder="Ej: Residente de Obra, Director Técnico" />
                         </div>
                         <div className="lg:col-span-1">
                             <label className={labelClasses}>Correo Electrónico (Login)</label>
@@ -513,31 +554,56 @@ function UsuariosTab({ showToast }: { showToast: (m: string) => void }) {
                         )}
                         <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-5 mt-2">
                             <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
-                                <label className="block text-sm font-semibold text-slate-800 mb-2">Asignación de Proyectos</label>
-                                <p className="text-xs text-slate-500 mb-2">Ctrl+Click para selección múltiple</p>
-                                <select multiple value={form.proyectoIds} onChange={(e) => setForm({ ...form, proyectoIds: Array.from(e.target.selectedOptions, o => o.value) })} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm h-28 focus:outline-none focus:ring-1 focus:ring-primary/30">
-                                    {proyectos.map((p: any) => <option key={p.id} value={p.id} className="py-1 px-1 rounded hover:bg-primary/5">{p.nombre}</option>)}
-                                </select>
+                                <label className="block text-sm font-semibold text-slate-800 mb-3">Asignación de Proyectos</label>
+                                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                                    {proyectos.map((p: any) => {
+                                        const checked = form.proyectoIds.includes(p.id);
+                                        return (
+                                            <label key={p.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${checked ? 'bg-primary/5 border-primary/30' : 'bg-slate-50 border-slate-200 hover:border-slate-300'}`}>
+                                                <input type="checkbox" checked={checked} onChange={() => {
+                                                    const next = checked ? form.proyectoIds.filter(id => id !== p.id) : [...form.proyectoIds, p.id];
+                                                    setForm({ ...form, proyectoIds: next, torreIds: form.torreIds.filter(tid => torres.find((t: any) => t.id === tid && next.includes(t.proyectoId))) });
+                                                }} className="accent-primary w-4 h-4 shrink-0" />
+                                                <span className={`text-sm font-medium ${checked ? 'text-primary' : 'text-slate-700'}`}>{p.nombre}</span>
+                                            </label>
+                                        );
+                                    })}
+                                    {proyectos.length === 0 && <p className="text-xs text-slate-400 italic">Sin proyectos disponibles</p>}
+                                </div>
                             </div>
 
-                            {filteredTorres.length > 0 ? (
-                                <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
-                                    <label className="block text-sm font-semibold text-slate-800 mb-2">Asignación de Torres Específicas</label>
-                                    <p className="text-xs text-slate-500 mb-2">Solo torres de los proyectos seleccionados</p>
-                                    <select multiple value={form.torreIds} onChange={(e) => setForm({ ...form, torreIds: Array.from(e.target.selectedOptions, o => o.value) })} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm h-28 focus:outline-none focus:ring-1 focus:ring-primary/30">
-                                        {filteredTorres.map((t: any) => <option key={t.id} value={t.id} className="py-1 px-1 rounded hover:bg-primary/5">{t.proyecto?.nombre} — {t.nombre}</option>)}
-                                    </select>
-                                </div>
-                            ) : (
-                                <div className="p-4 bg-slate-50 border border-slate-200 border-dashed rounded-xl shadow-sm flex items-center justify-center text-center">
-                                    <p className="text-sm text-slate-500">Seleccione proyectos primero para asignar torres específicas.</p>
-                                </div>
-                            )}
+                            <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+                                <label className="block text-sm font-semibold text-slate-800 mb-1">Asignación de Frentes Específicos</label>
+                                <p className="text-xs text-slate-500 mb-3">Solo frentes de los proyectos seleccionados</p>
+                                {filteredTorres.length > 0 ? (
+                                    <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                                        {filteredTorres.map((t: any) => {
+                                            const checked = form.torreIds.includes(t.id);
+                                            return (
+                                                <label key={t.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${checked ? 'bg-primary/5 border-primary/30' : 'bg-slate-50 border-slate-200 hover:border-slate-300'}`}>
+                                                    <input type="checkbox" checked={checked} onChange={() => {
+                                                        const next = checked ? form.torreIds.filter(id => id !== t.id) : [...form.torreIds, t.id];
+                                                        setForm({ ...form, torreIds: next });
+                                                    }} className="accent-primary w-4 h-4 shrink-0" />
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className={`text-sm font-medium truncate ${checked ? 'text-primary' : 'text-slate-700'}`}>{t.nombre}</span>
+                                                        {t.etapaConstructiva && <span className="text-[11px] text-slate-400 truncate">{t.etapaConstructiva}{t.frente ? ` · ${t.frente}` : ''}</span>}
+                                                    </div>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-center h-24 text-center border border-dashed border-slate-200 rounded-lg bg-slate-50/50">
+                                        <p className="text-xs text-slate-400">Seleccione proyectos para ver frentes disponibles.</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                     <div className="flex gap-3 justify-end pt-4 border-t border-slate-200/60">
                         <button onClick={resetForm} className={btnSecondary}>Cancelar</button>
-                        <button onClick={() => save.mutate()} disabled={!form.nombre || !form.email || !form.tipoUsuario} className={btnPrimary}>
+                        <button onClick={() => save.mutate()} disabled={!form.nombre || !form.email || !form.tipoUsuario || !form.cedula} className={btnPrimary}>
                             <Save className="w-4 h-4" /> {editId ? 'Actualizar Usuario' : 'Crear Usuario'}
                         </button>
                     </div>
@@ -611,6 +677,15 @@ function UsuariosTab({ showToast }: { showToast: (m: string) => void }) {
             </div>
         </div>
     );
+}
+
+// ── SAGRILAFT SEMAPHORE HELPER ──
+function getSagrilaftStatus(fecha: string | null): { level: 'ok' | 'warn' | 'danger' | 'none'; days: number } {
+    if (!fecha) return { level: 'none', days: Infinity };
+    const diff = Math.ceil((new Date(fecha + 'T12:00:00').getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    if (diff <= 20) return { level: 'danger', days: diff };
+    if (diff <= 30) return { level: 'warn', days: diff };
+    return { level: 'ok', days: diff };
 }
 
 // ── CONTRATISTAS TAB ──
@@ -765,9 +840,30 @@ function ContratistasTab({ showToast }: { showToast: (m: string) => void }) {
                                     </td>
                                     <td className="py-3 px-5 text-slate-600 font-medium">{c.proyecto?.nombre}</td>
                                     <td className="py-3 px-5">
-                                        {c.fechaVencimientoSagrilaft
-                                            ? <span className="text-slate-700 text-xs font-medium">{c.fechaVencimientoSagrilaft}</span>
-                                            : <span className="text-slate-400 italic text-xs">—</span>}
+                                        {(() => {
+                                            const { level, days } = getSagrilaftStatus(c.fechaVencimientoSagrilaft);
+                                            if (level === 'none') return <span className="text-slate-400 italic text-xs">—</span>;
+                                            const dot = level === 'danger' ? 'bg-rose-500' : level === 'warn' ? 'bg-amber-400' : 'bg-emerald-500';
+                                            const badge = level === 'danger'
+                                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                                : level === 'warn'
+                                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                                : 'bg-slate-50 text-slate-600 border-slate-200';
+                                            const msg = level === 'danger'
+                                                ? `Vence en ${days} día${days !== 1 ? 's' : ''} — actualizar documentación urgente`
+                                                : level === 'warn'
+                                                ? `Vence en ${days} día${days !== 1 ? 's' : ''} — 30 días para actualizar documentación`
+                                                : null;
+                                            return (
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
+                                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${badge}`}>{c.fechaVencimientoSagrilaft}</span>
+                                                    </div>
+                                                    {msg && <p className={`text-[11px] font-medium ${level === 'danger' ? 'text-rose-600' : 'text-amber-600'}`}>{msg}</p>}
+                                                </div>
+                                            );
+                                        })()}
                                     </td>
                                     <td className="py-3 px-5 text-right">
                                         <div className="flex items-center justify-end gap-1">

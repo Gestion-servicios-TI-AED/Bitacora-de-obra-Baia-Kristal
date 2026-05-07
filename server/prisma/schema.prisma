@@ -28,13 +28,15 @@ model Proyecto {
 }
 
 model Torre {
-  id          String   @id @default(uuid())
-  proyectoId  String
-  nombre      String
-  abreviatura  String?
-  folioActual Int      @default(0)
-  activo      Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id                  String   @id @default(uuid())
+  proyectoId          String
+  nombre              String
+  abreviatura         String?
+  etapaConstructiva   String?
+  frente              String?
+  folioActual         Int      @default(0)
+  activo              Boolean  @default(true)
+  createdAt           DateTime @default(now())
 
   proyecto       Proyecto        @relation(fields: [proyectoId], references: [id])
   usuarioTorres  UsuarioTorre[]
