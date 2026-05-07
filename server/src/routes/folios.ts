@@ -17,13 +17,16 @@ router.get('/siguiente', authenticateToken, async (req: AuthRequest, res: Respon
         const fechaStr = fecha as string;
 
         // Find last folio for this tower
-        const lastFolio = await prisma.folioControl.findMany({
-            where: { torreId },
-            orderBy: { fecha: 'desc' },
-            take: 1,
-        });
+        const [lastFolio, torre] = await Promise.all([
+            prisma.folioControl.findMany({
+                where: { torreId },
+                orderBy: { fecha: 'desc' },
+                take: 1,
+            }),
+            prisma.torre.findUnique({ where: { id: torreId }, select: { folioActual: true } }),
+        ]);
 
-        let nextFolio = 1;
+        let nextFolio = (torre?.folioActual || 0) + 1;
         if (lastFolio.length > 0) {
             const lastDate = new Date(lastFolio[0]!.fecha);
             const currentDate = new Date(fechaStr);
