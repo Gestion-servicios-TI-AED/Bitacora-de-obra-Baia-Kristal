@@ -7,7 +7,7 @@ import { useState, useRef } from 'react';
 import {
     ArrowLeft, Building2, Calendar, Hash, Clock,
     CheckCircle2, X, ZoomIn, Shield, FileDown, MapPin, Briefcase, User, HardHat,
-    Lightbulb, AlertCircle, FlaskConical, Edit
+    Lightbulb, AlertCircle, FlaskConical, Edit, Trash2, AlertTriangle
 } from 'lucide-react';
 import { toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
@@ -37,6 +37,7 @@ export default function DetalleBitacoraPage() {
 
     const [comentariosDirector, setComentariosDirector] = useState('');
     const [comentariosInterventor, setComentariosInterventor] = useState('');
+    const [confirmDelete, setConfirmDelete] = useState(false);
 
     // Edit activity (admin/director)
     const [editingActivity, setEditingActivity] = useState<any | null>(null);
@@ -129,6 +130,15 @@ export default function DetalleBitacoraPage() {
             setSigning(false);
         }
     };
+
+    const deleteMutation = useMutation({
+        mutationFn: async () => (await api.delete(`/bitacoras/${id}`)).data,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['bitacoras'] });
+            navigate('/bitacoras');
+        },
+        onError: (err: any) => alert(err.response?.data?.error || 'Error al eliminar la bitácora'),
+    });
 
     const handleDownloadPdf = async () => {
         if (!pdfRef.current || !bitacora) return;
@@ -255,18 +265,48 @@ export default function DetalleBitacoraPage() {
                     </span>
                     Volver al Archivo
                 </button>
-                <button
-                    onClick={handleDownloadPdf}
-                    disabled={isGeneratingPdf}
-                    className="flex items-center gap-2 text-sm font-semibold bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-xl hover:bg-slate-50 hover:text-primary transition-all shadow-sm active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
-                >
-                    {isGeneratingPdf ? (
-                        <div className="w-4 h-4 border-2 border-slate-300 border-t-primary rounded-full animate-spin"></div>
-                    ) : (
-                        <FileDown className="w-4 h-4" />
+                <div className="flex items-center gap-2">
+                    {user?.tipoUsuario === 'admin' && !confirmDelete && (
+                        <button
+                            onClick={() => setConfirmDelete(true)}
+                            className="flex items-center gap-2 text-sm font-semibold bg-white border border-rose-200 text-rose-600 px-4 py-2 rounded-xl hover:bg-rose-50 transition-all shadow-sm active:scale-95"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            Eliminar
+                        </button>
                     )}
-                    {isGeneratingPdf ? 'Exportando...' : 'Descargar PDF'}
-                </button>
+                    {confirmDelete && (
+                        <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 px-4 py-2 rounded-xl shadow-sm animate-fadeIn">
+                            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                            <span className="text-xs font-semibold text-rose-700">¿Eliminar este folio?</span>
+                            <button
+                                onClick={() => deleteMutation.mutate()}
+                                disabled={deleteMutation.isPending}
+                                className="px-3 py-1 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 disabled:opacity-50 transition-colors"
+                            >
+                                {deleteMutation.isPending ? 'Eliminando...' : 'Sí, eliminar'}
+                            </button>
+                            <button
+                                onClick={() => setConfirmDelete(false)}
+                                className="px-3 py-1 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-50 transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    )}
+                    <button
+                        onClick={handleDownloadPdf}
+                        disabled={isGeneratingPdf}
+                        className="flex items-center gap-2 text-sm font-semibold bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-xl hover:bg-slate-50 hover:text-primary transition-all shadow-sm active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+                    >
+                        {isGeneratingPdf ? (
+                            <div className="w-4 h-4 border-2 border-slate-300 border-t-primary rounded-full animate-spin"></div>
+                        ) : (
+                            <FileDown className="w-4 h-4" />
+                        )}
+                        {isGeneratingPdf ? 'Exportando...' : 'Descargar PDF'}
+                    </button>
+                </div>
             </div>
 
             {/* Success Notification */}

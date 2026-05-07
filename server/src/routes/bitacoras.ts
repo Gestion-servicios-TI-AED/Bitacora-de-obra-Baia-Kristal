@@ -343,6 +343,42 @@ router.patch('/:id/firma-interventor', authenticateToken, async (req: AuthReques
     }
 });
 
+// DELETE /api/bitacoras/:id — admin only
+router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+    try {
+        if (req.user?.tipoUsuario !== 'admin') {
+            res.status(403).json({ error: 'Solo el administrador puede eliminar bitácoras' });
+            return;
+        }
+
+        const bitacora = await prisma.bitacora.findUnique({ where: { id: req.params.id as string } });
+        if (!bitacora) { res.status(404).json({ error: 'Bitácora no encontrada' }); return; }
+
+        const { torreId, fechaRegistro } = bitacora;
+
+        // Delete bitácora (cascades to actividades and ensayos)
+        await prisma.bitacora.delete({ where: { id: req.params.id as string } });
+
+        // Free the folio slot
+        await prisma.folioControl.deleteMany({ where: { torreId, fecha: fechaRegistro } });
+
+        // Sync torre.folioActual to the most recent remaining folio
+        const lastRemaining = await prisma.folioControl.findFirst({
+            where: { torreId },
+            orderBy: { fecha: 'desc' },
+        });
+        await prisma.torre.update({
+            where: { id: torreId },
+            data: { folioActual: lastRemaining ? lastRemaining.numeroFolio : 0 },
+        });
+
+        res.json({ message: 'Bitácora eliminada' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al eliminar bitácora' });
+    }
+});
+
 // Check if tower has registration for a given date
 router.get('/check/:torreId/:fecha', authenticateToken, async (req: AuthRequest, res: Response) => {
     try {
