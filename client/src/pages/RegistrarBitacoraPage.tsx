@@ -769,8 +769,10 @@ export default function RegistrarBitacoraPage() {
                                     {ensayos.map((ens, idx) => (
                                         <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start justify-between gap-4">
                                             <div className="flex gap-4">
-                                                <div className="w-16 h-16 rounded-lg bg-white border border-slate-200 overflow-hidden shrink-0">
-                                                    <img src={URL.createObjectURL(ens.anexoFoto)} className="w-full h-full object-cover" />
+                                                <div className="w-16 h-16 rounded-lg bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center text-slate-300">
+                                                    {ens.anexoFoto
+                                                        ? <img src={URL.createObjectURL(ens.anexoFoto)} className="w-full h-full object-cover" />
+                                                        : <FlaskConical className="w-7 h-7" />}
                                                 </div>
                                                 <div>
                                                     <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-1">Ensayo #{idx+1}</span>
