@@ -122,8 +122,10 @@ export default function Layout() {
         navigate('/login');
     };
 
+    const canRegister = user?.tipoUsuario !== 'interventoria' && user?.tipoUsuario !== 'supervisor_tecnico';
+
     const menuItems = [
-        { to: '/registrar', icon: ClipboardList, label: 'Registrar Bitácora' },
+        ...(canRegister ? [{ to: '/registrar', icon: ClipboardList, label: 'Registrar Bitácora' }] : []),
         { to: '/bitacoras', icon: FolderOpen, label: 'Ver Bitácoras' },
     ];
 
@@ -203,12 +205,14 @@ export default function Layout() {
                                     user?.tipoUsuario === 'residente_obra' ? 'bg-blue-500/20 text-blue-200 ring-1 ring-inset ring-blue-500/30' :
                                         user?.tipoUsuario === 'director_obra' ? 'bg-amber-500/20 text-amber-200 ring-1 ring-inset ring-amber-500/30' :
                                             user?.tipoUsuario === 'director_obra_general' ? 'bg-orange-500/20 text-orange-200 ring-1 ring-inset ring-orange-500/30' :
-                                                'bg-green-500/20 text-green-200 ring-1 ring-inset ring-green-500/30'
+                                                user?.tipoUsuario === 'supervisor_tecnico' ? 'bg-indigo-500/20 text-indigo-200 ring-1 ring-inset ring-indigo-500/30' :
+                                                    'bg-green-500/20 text-green-200 ring-1 ring-inset ring-green-500/30'
                                     }`}>
                                     {user?.tipoUsuario === 'admin' ? 'Administrador' :
                                         user?.tipoUsuario === 'residente_obra' ? 'Residente de Obra' :
                                             user?.tipoUsuario === 'director_obra' ? 'Director de Obra' :
-                                                user?.tipoUsuario === 'director_obra_general' ? 'Director General' : 'Interventoría'}
+                                                user?.tipoUsuario === 'director_obra_general' ? 'Director General' :
+                                                    user?.tipoUsuario === 'supervisor_tecnico' ? 'Supervisor Técnico' : 'Interventoría'}
                                 </span>
                             </div>
                         )}
