@@ -17,12 +17,13 @@ export const getEmpresasInterventoria = async (req: Request, res: Response) => {
 // Create a new empresa interventora
 export const createEmpresaInterventoria = async (req: Request, res: Response) => {
   try {
-    const { nombre, nit, activo } = req.body;
+    const { nombre, nit, activo, tipo } = req.body;
 
     const nuevaEmpresa = await prisma.empresaInterventoria.create({
       data: {
         nombre,
         nit,
+        tipo: tipo || 'interventoria',
         activo: activo ?? true,
       },
     });
@@ -38,15 +39,14 @@ export const createEmpresaInterventoria = async (req: Request, res: Response) =>
 export const updateEmpresaInterventoria = async (req: Request, res: Response) => {
   try {
     const id = req.params['id'] as string;
-    const { nombre, nit, activo } = req.body;
+    const { nombre, nit, activo, tipo } = req.body;
+
+    const data: any = { nombre, nit, activo };
+    if (tipo !== undefined) data.tipo = tipo;
 
     const empresaActualizada = await prisma.empresaInterventoria.update({
       where: { id },
-      data: {
-        nombre,
-        nit,
-        activo,
-      },
+      data,
     });
 
     res.json(empresaActualizada);

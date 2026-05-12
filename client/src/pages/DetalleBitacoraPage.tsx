@@ -221,14 +221,14 @@ export default function DetalleBitacoraPage() {
     }
 
     const canSignDirector = (user?.tipoUsuario === 'director_obra' || user?.tipoUsuario === 'director_obra_general') && !bitacora.firmaDirectorData;
-    const canSignInterventor = (user?.tipoUsuario === 'interventoria' || user?.tipoUsuario === 'director_obra_general') && !bitacora.firmaInterventorData;
+    const canSignInterventor = (user?.tipoUsuario === 'interventoria' || user?.tipoUsuario === 'director_obra_general' || user?.tipoUsuario === 'supervisor_tecnico') && !bitacora.firmaInterventorData;
 
     const directorAsignado = bitacora.torre?.usuarioTorres?.find(
         (ut: any) => ut.usuario?.tipoUsuario === 'director_obra' || ut.usuario?.tipoUsuario === 'director_obra_general'
     )?.usuario;
-    
+
     const interventorAsignado = bitacora.torre?.usuarioTorres?.find(
-        (ut: any) => ut.usuario?.tipoUsuario === 'interventoria'
+        (ut: any) => ut.usuario?.tipoUsuario === 'interventoria' || ut.usuario?.tipoUsuario === 'supervisor_tecnico'
     )?.usuario;
 
     return (
@@ -406,8 +406,12 @@ export default function DetalleBitacoraPage() {
                         <div className="flex gap-3 items-start p-3.5 bg-slate-50/80 rounded-xl border border-slate-200/60 transition-colors hover:bg-slate-50 md:col-span-2 lg:col-span-2">
                             <Shield className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                             <div>
-                                <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider block mb-0.5">Empresa Interventora</span>
-                                <span className="font-semibold text-slate-800 text-[13px]">{interventorAsignado?.empresaInterventoria?.nombre || 'No asignada al interventor o no hay interventor'}</span>
+                                <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider block mb-0.5">Empresa de Supervisión Técnica</span>
+                                <span className="font-semibold text-slate-800 text-[13px]">
+                                    {bitacora.firmaInterventorData
+                                        ? (JSON.parse(bitacora.firmaInterventorData)?.empresa || interventorAsignado?.empresaInterventoria?.nombre || 'No especificada')
+                                        : (bitacora.proyecto?.empresaInterventoria?.nombre || interventorAsignado?.empresaInterventoria?.nombre || 'No asignada al proyecto')}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -861,11 +865,11 @@ export default function DetalleBitacoraPage() {
                                 <div className="rounded-xl border-2 border-primary bg-primary/5 p-6 shadow-sm flex flex-col h-full ring-4 ring-primary/10">
                                     <h4 className="text-[15px] font-bold text-slate-900 mb-4 flex items-center gap-2">
                                         <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-                                        Aprobación Requerida: Interventoría
+                                        Aprobación Requerida: Supervisión Técnica
                                     </h4>
                                     <div className="mb-4">
                                         <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                                            Observaciones de la Interventoría <span className="text-rose-500">*</span>
+                                            Observaciones de Supervisión Técnica <span className="text-rose-500">*</span>
                                         </label>
                                         <textarea
                                             value={comentariosInterventor}
@@ -896,7 +900,7 @@ export default function DetalleBitacoraPage() {
                             ) : (
                                 <div className="flex flex-col gap-3 h-full">
                                     <FirmaDigital
-                                        title="Aval Firma Interventora"
+                                        title="Aval Supervisión Técnica"
                                         user={null}
                                         enabled={false}
                                         signed={!!bitacora.firmaInterventorData}
@@ -906,7 +910,7 @@ export default function DetalleBitacoraPage() {
                                     />
                                     {bitacora.comentariosInterventor && (
                                         <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl">
-                                            <span className="text-xs font-semibold text-primary/70 uppercase tracking-wider block mb-1.5">Observaciones de la Interventoría</span>
+                                            <span className="text-xs font-semibold text-primary/70 uppercase tracking-wider block mb-1.5">Observaciones de Supervisión Técnica</span>
                                             <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{bitacora.comentariosInterventor}</p>
                                         </div>
                                     )}

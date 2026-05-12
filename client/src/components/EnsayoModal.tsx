@@ -4,19 +4,21 @@ import { X, Camera, Upload, CheckCircle2 } from 'lucide-react';
 interface Props {
     onClose: () => void;
     onSave: (ensayo: any) => void;
+    initialData?: any;
 }
 
-export default function EnsayoModal({ onClose, onSave }: Props) {
-    const [ensayoRealizado, setEnsayoRealizado] = useState('');
+export default function EnsayoModal({ onClose, onSave, initialData }: Props) {
+    const isEditing = !!initialData;
+    const [ensayoRealizado, setEnsayoRealizado] = useState(initialData?.ensayoRealizado ?? '');
     const [anexoFoto, setAnexoFoto] = useState<File | null>(null);
 
-    const isValid = ensayoRealizado && anexoFoto;
+    const isValid = ensayoRealizado && (anexoFoto || (isEditing && initialData?.anexoFoto));
 
     const handleSave = () => {
         if (!isValid) return;
         onSave({
             ensayoRealizado,
-            anexoFoto,
+            anexoFoto: anexoFoto ?? initialData?.anexoFoto,
         });
         onClose();
     };
@@ -28,7 +30,7 @@ export default function EnsayoModal({ onClose, onSave }: Props) {
                 <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
                     <h2 className="text-lg font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
                         <span className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">🧪</span>
-                        Registrar Ensayo de Calidad
+                        {isEditing ? 'Editar Ensayo de Calidad' : 'Registrar Ensayo de Calidad'}
                     </h2>
                     <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-lg transition-colors group">
                         <X className="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
@@ -48,7 +50,15 @@ export default function EnsayoModal({ onClose, onSave }: Props) {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">Anexo o Registro Fotográfico <span className="text-rose-500">*</span></label>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">
+                            Anexo o Registro Fotográfico {!isEditing && <span className="text-rose-500">*</span>}
+                            {isEditing && <span className="text-xs font-normal text-slate-400 ml-1">(opcional — reemplaza la actual)</span>}
+                        </label>
+                        {isEditing && initialData?.anexoFoto && !anexoFoto && (
+                            <div className="mb-3 w-24 h-24 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+                                <img src={URL.createObjectURL(initialData.anexoFoto)} className="w-full h-full object-cover" />
+                            </div>
+                        )}
                         <label className={`flex flex-col items-center justify-center gap-3 px-4 py-10 bg-slate-50 border-2 border-dashed rounded-xl cursor-pointer hover:bg-slate-100 transition-all ${anexoFoto ? 'border-emerald-400 bg-emerald-50/30' : 'border-slate-300 hover:border-slate-400 group'}`}>
                             <input
                                 type="file"
@@ -66,7 +76,7 @@ export default function EnsayoModal({ onClose, onSave }: Props) {
                                     <div className="p-4 bg-white rounded-full shadow-sm mb-2 group-hover:scale-110 transition-transform">
                                         <Camera className="w-6 h-6" />
                                     </div>
-                                    <span className="text-xs font-bold uppercase tracking-wider">Cargar Evidencia del Ensayo</span>
+                                    <span className="text-xs font-bold uppercase tracking-wider">{isEditing ? 'Cambiar foto' : 'Cargar Evidencia del Ensayo'}</span>
                                 </div>
                             )}
                         </label>
@@ -91,7 +101,7 @@ export default function EnsayoModal({ onClose, onSave }: Props) {
                             className="px-6 py-2.5 bg-primary hover:bg-primary/95 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
                         >
                             <Upload className="w-4 h-4" />
-                            Registrar Ensayo
+                            {isEditing ? 'Guardar Cambios' : 'Registrar Ensayo'}
                         </button>
                     </div>
                 </div>

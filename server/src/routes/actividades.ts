@@ -100,8 +100,8 @@ router.put('/:id', authenticateToken, upload.fields([
 ]), async (req: AuthRequest, res: Response) => {
     try {
         const rol = req.user?.tipoUsuario;
-        if (rol !== 'admin' && rol !== 'director_obra' && rol !== 'director_obra_general') {
-            res.status(403).json({ error: 'Solo el director o administrador puede editar actividades registradas' });
+        if (rol !== 'admin' && rol !== 'director_obra' && rol !== 'director_obra_general' && rol !== 'supervisor_tecnico' && rol !== 'interventoria') {
+            res.status(403).json({ error: 'Solo el director, interventor o administrador puede editar actividades registradas' });
             return;
         }
         const actividadId = req.params['id'] as string;

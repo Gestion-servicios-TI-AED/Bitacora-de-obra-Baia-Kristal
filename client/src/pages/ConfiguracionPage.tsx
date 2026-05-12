@@ -485,7 +485,8 @@ function UsuariosTab({ showToast }: { showToast: (m: string) => void }) {
     };
 
     const tipoLabels: Record<string, string> = {
-        residente_obra: 'Residente', director_obra: 'Director', director_obra_general: 'Dir. General', interventoria: 'Interventor', admin: 'Administrador',
+        residente_obra: 'Residente', director_obra: 'Director', director_obra_general: 'Dir. General',
+        interventoria: 'Interventor', supervisor_tecnico: 'Supervisor Técnico', admin: 'Administrador',
     };
 
     const getRoleBadgeClasses = (role: string) => {
@@ -495,6 +496,7 @@ function UsuariosTab({ showToast }: { showToast: (m: string) => void }) {
             case 'director_obra': return 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20';
             case 'residente_obra': return 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/20';
             case 'interventoria': return 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20';
+            case 'supervisor_tecnico': return 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/20';
             default: return 'bg-slate-50 text-slate-700 ring-1 ring-inset ring-slate-600/20';
         }
     };
@@ -544,10 +546,11 @@ function UsuariosTab({ showToast }: { showToast: (m: string) => void }) {
                                 <option value="director_obra">Director de Obra</option>
                                 <option value="director_obra_general">Director de Obra General</option>
                                 <option value="interventoria">Interventoría</option>
+                                <option value="supervisor_tecnico">Supervisor Técnico Independiente</option>
                                 <option value="admin">Administrador del Sistema</option>
                             </select>
                         </div>
-                        {(form.tipoUsuario === 'interventoria' || form.tipoUsuario === 'director_obra_general') && (
+                        {(form.tipoUsuario === 'interventoria' || form.tipoUsuario === 'director_obra_general' || form.tipoUsuario === 'supervisor_tecnico') && (
                             <div className="lg:col-span-1">
                                 <label className={labelClasses}>Empresa de Interventoría</label>
                                 <select value={form.empresaInterventoriaId} onChange={(e) => setForm({ ...form, empresaInterventoriaId: e.target.value })} className={selectClasses}>
@@ -957,27 +960,35 @@ function FestivosTab({ showToast }: { showToast: (m: string) => void }) {
 // ── INTERVENTORAS TAB ──
 function InterventorasTab({ showToast }: { showToast: (m: string) => void }) {
     const queryClient = useQueryClient();
+    const { selectedProjectId } = useProjectStore();
     const [showForm, setShowForm] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
     const [nombre, setNombre] = useState('');
     const [nit, setNit] = useState('');
+    const [tipo, setTipo] = useState<'interventoria' | 'supervision_tecnica'>('interventoria');
 
     const { data: interventoras = [] } = useQuery({
         queryKey: ['interventoras'],
         queryFn: async () => (await api.get('/empresas-interventoria')).data,
     });
 
+    const { data: proyecto } = useQuery({
+        queryKey: ['proyecto', selectedProjectId],
+        queryFn: async () => (await api.get(`/proyectos/${selectedProjectId}`)).data,
+        enabled: !!selectedProjectId && SINGLE_PROJECT_MODE,
+    });
+
     const saveMutation = useMutation({
         mutationFn: async () => {
             if (editId) {
-                return (await api.put(`/empresas-interventoria/${editId}`, { nombre, nit })).data;
+                return (await api.put(`/empresas-interventoria/${editId}`, { nombre, nit, tipo })).data;
             }
-            return (await api.post('/empresas-interventoria', { nombre, nit })).data;
+            return (await api.post('/empresas-interventoria', { nombre, nit, tipo })).data;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['interventoras'] });
             resetForm();
-            showToast(editId ? 'Empresa Interventora actualizada' : 'Empresa Interventora creada');
+            showToast(editId ? 'Empresa actualizada' : 'Empresa creada');
         },
     });
 
@@ -990,13 +1001,28 @@ function InterventorasTab({ showToast }: { showToast: (m: string) => void }) {
         },
     });
 
-    const resetForm = () => { setShowForm(false); setEditId(null); setNombre(''); setNit(''); };
-    const startEdit = (e: any) => { setEditId(e.id); setNombre(e.nombre); setNit(e.nit || ''); setShowForm(true); };
+    const proyectoEmpresaMutation = useMutation({
+        mutationFn: async (empresaInterventoriaId: string) => {
+            return (await api.put(`/proyectos/${selectedProjectId}`, { empresaInterventoriaId })).data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['proyecto', selectedProjectId] });
+            showToast('Empresa de supervisión actualizada para el proyecto');
+        },
+    });
+
+    const resetForm = () => { setShowForm(false); setEditId(null); setNombre(''); setNit(''); setTipo('interventoria'); };
+    const startEdit = (e: any) => { setEditId(e.id); setNombre(e.nombre); setNit(e.nit || ''); setTipo(e.tipo || 'interventoria'); setShowForm(true); };
+
+    const tipoLabel = (t: string) => t === 'supervision_tecnica' ? 'Supervisión Técnica Independiente' : 'Interventoría';
+    const tipoBadgeClass = (t: string) => t === 'supervision_tecnica'
+        ? 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/20'
+        : 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20';
 
     return (
         <div className="p-4 sm:p-0">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-                <h2 className="text-lg font-semibold text-slate-800">Catálogo de Empresas de Interventoría</h2>
+                <h2 className="text-lg font-semibold text-slate-800">Catálogo de Empresas de Supervisión</h2>
                 <button onClick={() => { resetForm(); setShowForm(true); }} className={btnPrimary}>
                     <Plus className="w-4 h-4" /> Nueva Empresa
                 </button>
@@ -1004,8 +1030,8 @@ function InterventorasTab({ showToast }: { showToast: (m: string) => void }) {
 
             {showForm && (
                 <div className="border border-slate-200/80 rounded-2xl p-5 mb-6 bg-slate-50/50 shadow-sm animate-fadeIn">
-                    <h3 className="text-sm font-medium text-slate-800 mb-4">{editId ? 'Editar Empresa' : 'Registrar Nueva Empresa Interventora'}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                    <h3 className="text-sm font-medium text-slate-800 mb-4">{editId ? 'Editar Empresa' : 'Registrar Nueva Empresa'}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
                         <div>
                             <label className={labelClasses}>Razón Social / Nombre</label>
                             <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClasses} placeholder="Nombre de la empresa" />
@@ -1013,6 +1039,13 @@ function InterventorasTab({ showToast }: { showToast: (m: string) => void }) {
                         <div>
                             <label className={labelClasses}>NIT</label>
                             <input value={nit} onChange={(e) => setNit(e.target.value)} className={inputClasses} placeholder="123456789-0" />
+                        </div>
+                        <div>
+                            <label className={labelClasses}>Tipo de Empresa</label>
+                            <select value={tipo} onChange={(e) => setTipo(e.target.value as any)} className={selectClasses}>
+                                <option value="interventoria">Interventoría</option>
+                                <option value="supervision_tecnica">Supervisión Técnica Independiente</option>
+                            </select>
                         </div>
                     </div>
                     <div className="flex gap-3 justify-end pt-2 border-t border-slate-200/60">
@@ -1024,12 +1057,13 @@ function InterventorasTab({ showToast }: { showToast: (m: string) => void }) {
                 </div>
             )}
 
-            <div className="border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm">
+            <div className="border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm mb-6">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left whitespace-nowrap">
                         <thead className="bg-slate-50/80 border-b border-slate-200/80">
                             <tr>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Empresa</th>
+                                <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Tipo</th>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">NIT</th>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider text-right">Acciones</th>
                             </tr>
@@ -1042,6 +1076,11 @@ function InterventorasTab({ showToast }: { showToast: (m: string) => void }) {
                                             <div className={`w-2 h-2 rounded-full ${t.activo ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
                                             <span className="font-semibold text-slate-900">{t.nombre}</span>
                                         </div>
+                                    </td>
+                                    <td className="py-3.5 px-5">
+                                        <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-bold ${tipoBadgeClass(t.tipo)}`}>
+                                            {tipoLabel(t.tipo)}
+                                        </span>
                                     </td>
                                     <td className="py-3.5 px-5 text-slate-600 truncate max-w-[200px]">
                                         {t.nit || <span className="text-slate-400 italic text-xs">Sin NIT</span>}
@@ -1060,7 +1099,7 @@ function InterventorasTab({ showToast }: { showToast: (m: string) => void }) {
                             ))}
                             {interventoras.length === 0 && (
                                 <tr>
-                                    <td colSpan={3} className="py-12 text-center text-slate-500 bg-slate-50">
+                                    <td colSpan={4} className="py-12 text-center text-slate-500 bg-slate-50">
                                         No hay empresas registradas.
                                     </td>
                                 </tr>
@@ -1069,6 +1108,37 @@ function InterventorasTab({ showToast }: { showToast: (m: string) => void }) {
                     </table>
                 </div>
             </div>
+
+            {/* Project-level empresa de supervisión selector (only in SINGLE_PROJECT_MODE) */}
+            {SINGLE_PROJECT_MODE && selectedProjectId && (
+                <div className="border border-primary/20 rounded-2xl p-5 bg-primary/5 shadow-sm">
+                    <h3 className="text-sm font-semibold text-slate-800 mb-1 flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-primary" />
+                        Empresa de Supervisión activa para el proyecto
+                    </h3>
+                    <p className="text-xs text-slate-500 mb-4">Esta empresa aparecerá en las actas de bitácora como empresa de supervisión técnica.</p>
+                    <div className="flex flex-col sm:flex-row gap-3 items-end">
+                        <div className="flex-1">
+                            <select
+                                defaultValue={proyecto?.empresaInterventoriaId || ''}
+                                key={proyecto?.empresaInterventoriaId}
+                                onChange={(e) => proyectoEmpresaMutation.mutate(e.target.value)}
+                                className={selectClasses}
+                            >
+                                <option value="">Sin empresa asignada</option>
+                                {interventoras.map((emp: any) => (
+                                    <option key={emp.id} value={emp.id}>{emp.nombre} — {tipoLabel(emp.tipo)}</option>
+                                ))}
+                            </select>
+                        </div>
+                        {proyecto?.empresaInterventoria && (
+                            <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1 bg-emerald-50 px-2 py-1.5 rounded-lg border border-emerald-200 shrink-0">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Activa: {proyecto.empresaInterventoria.nombre}
+                            </span>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

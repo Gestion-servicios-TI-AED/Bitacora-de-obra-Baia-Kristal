@@ -25,7 +25,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         // Role-based filtering
         if (user.tipoUsuario === 'residente_obra') {
             where.creadoPorUsuarioId = user.id;
-        } else if (user.tipoUsuario === 'director_obra' || user.tipoUsuario === 'director_obra_general' || user.tipoUsuario === 'interventoria') {
+        } else if (user.tipoUsuario === 'director_obra' || user.tipoUsuario === 'director_obra_general' || user.tipoUsuario === 'interventoria' || user.tipoUsuario === 'supervisor_tecnico') {
             const userTorres = await prisma.usuarioTorre.findMany({
                 where: { usuarioId: user.id },
                 select: { torreId: true },
@@ -82,7 +82,8 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
                 proyecto: {
                     include: {
                         empresaContratante: true,
-                    },
+                        empresaInterventoria: true,
+                    } as any,
                 },
                 creadoPor: { select: { id: true, nombre: true, apellido: true, cargo: true, email: true, cedula: true, tipoUsuario: true } },
                 actividades: { include: { contratista: true }, orderBy: { createdAt: 'asc' } },
@@ -296,8 +297,8 @@ router.patch('/:id/firma-director', authenticateToken, async (req: AuthRequest, 
 router.patch('/:id/firma-interventor', authenticateToken, async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user!;
-        if (user.tipoUsuario !== 'interventoria' && user.tipoUsuario !== 'director_obra_general') {
-            res.status(403).json({ error: 'Solo el interventor o director general puede firmar aquí' });
+        if (user.tipoUsuario !== 'interventoria' && user.tipoUsuario !== 'director_obra_general' && user.tipoUsuario !== 'supervisor_tecnico') {
+            res.status(403).json({ error: 'Solo el interventor, supervisor técnico o director general puede firmar aquí' });
             return;
         }
 
@@ -318,11 +319,28 @@ router.patch('/:id/firma-interventor', authenticateToken, async (req: AuthReques
             return;
         }
 
+        // Determine empresa for firma data
+        let empresa = '';
+        if (user.tipoUsuario === 'director_obra_general') {
+            const proyecto = await (prisma.proyecto as any).findUnique({
+                where: { id: bitacora.proyectoId },
+                include: { empresaContratante: true },
+            });
+            empresa = proyecto?.empresaContratante?.nombre || '';
+        } else {
+            const fullUser = await prisma.usuario.findUnique({
+                where: { id: user.id },
+                include: { empresaInterventoria: true },
+            });
+            empresa = fullUser?.empresaInterventoria?.nombre || '';
+        }
+
         const firmaData = JSON.stringify({
             nombre: `${user.nombre} ${user.apellido}`,
             email: user.email,
             cedula: user.cedula,
             cargo: user.cargo,
+            empresa,
         });
 
         const updated = await prisma.bitacora.update({

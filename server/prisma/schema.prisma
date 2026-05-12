@@ -18,13 +18,15 @@ model Proyecto {
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  empresaContratanteId String?
+  empresaContratanteId   String?
+  empresaInterventoriaId String?
 
-  torres             Torre[]
-  contratistas       Contratista[]
-  usuarioProyectos   UsuarioProyecto[]
-  bitacoras          Bitacora[]
-  empresaContratante EmpresaContratante? @relation(fields: [empresaContratanteId], references: [id])
+  torres               Torre[]
+  contratistas         Contratista[]
+  usuarioProyectos     UsuarioProyecto[]
+  bitacoras            Bitacora[]
+  empresaContratante   EmpresaContratante?   @relation(fields: [empresaContratanteId], references: [id])
+  empresaInterventoria EmpresaInterventoria? @relation("ProyectoInterventoria", fields: [empresaInterventoriaId], references: [id])
 }
 
 model Torre {
@@ -195,11 +197,13 @@ model EmpresaInterventoria {
   id        String    @id @default(uuid())
   nombre    String
   nit       String?
+  tipo      String    @default("interventoria") // interventoria | supervision_tecnica
   activo    Boolean   @default(true)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
   usuarios  Usuario[]
+  proyectos Proyecto[] @relation("ProyectoInterventoria")
 }
 
 model EmpresaContratante {

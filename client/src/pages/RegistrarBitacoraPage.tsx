@@ -56,6 +56,7 @@ export default function RegistrarBitacoraPage() {
     // Ensayos
     const [ensayos, setEnsayos] = useState<any[]>([]);
     const [showEnsayoModal, setShowEnsayoModal] = useState(false);
+    const [editingEnsayoIdx, setEditingEnsayoIdx] = useState<number | null>(null);
 
     // Draft
     const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
@@ -268,6 +269,18 @@ export default function RegistrarBitacoraPage() {
         (!diaLaborable && razonNoLaboral && explicacionNoLaboral) ||
         (diaLaborable && estadoObra && actividades.length > 0)
     );
+
+    if (user?.tipoUsuario === 'interventoria' || user?.tipoUsuario === 'supervisor_tecnico') {
+        return (
+            <div className="max-w-xl mx-auto mt-16 animate-fadeIn px-4">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-10 text-center">
+                    <Shield className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                    <h2 className="text-lg font-bold text-slate-800 mb-2">Acceso restringido</h2>
+                    <p className="text-sm text-slate-500">Los usuarios con rol de interventoría o supervisión técnica no están habilitados para registrar bitácoras. Solo puede avalar las ya diligenciadas.</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-5xl mx-auto animate-fadeIn px-2 sm:px-0">
@@ -512,9 +525,14 @@ export default function RegistrarBitacoraPage() {
                                                             </div>
                                                             <p className="font-semibold text-slate-800 text-sm leading-snug line-clamp-2">{act.descripcionVisita}</p>
                                                         </div>
-                                                        <button onClick={() => removeActividad(idx)} className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors p-1.5 rounded-lg shrink-0" title="Eliminar registro">
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
+                                                        <div className="flex items-center gap-1 shrink-0">
+                                                            <button onClick={() => { setEditingIdx(idx); setShowModal(true); }} className="text-slate-400 hover:text-primary hover:bg-primary/5 transition-colors p-1.5 rounded-lg" title="Editar visita">
+                                                                <Edit className="w-4 h-4" />
+                                                            </button>
+                                                            <button onClick={() => removeActividad(idx)} className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors p-1.5 rounded-lg" title="Eliminar registro">
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-3 text-[13px] bg-amber-100/60 rounded-lg p-3 border border-amber-200">
                                                         <div>
@@ -733,7 +751,7 @@ export default function RegistrarBitacoraPage() {
                                     Gestión de Calidad (Ensayos)
                                 </label>
                                 <button
-                                    onClick={() => setShowEnsayoModal(true)}
+                                    onClick={() => { setEditingEnsayoIdx(null); setShowEnsayoModal(true); }}
                                     className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium shadow-sm hover:bg-indigo-700 transition-all group"
                                 >
                                     <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
@@ -759,12 +777,22 @@ export default function RegistrarBitacoraPage() {
                                                     <p className="text-sm font-semibold text-slate-800 line-clamp-2">{ens.ensayoRealizado}</p>
                                                 </div>
                                             </div>
-                                            <button
-                                                onClick={() => setEnsayos(ensayos.filter((_, i) => i !== idx))}
-                                                className="text-slate-400 hover:text-rose-600 p-1 rounded-lg transition-colors"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                <button
+                                                    onClick={() => { setEditingEnsayoIdx(idx); setShowEnsayoModal(true); }}
+                                                    className="text-slate-400 hover:text-primary hover:bg-primary/5 p-1.5 rounded-lg transition-colors"
+                                                    title="Editar ensayo"
+                                                >
+                                                    <Edit className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => setEnsayos(ensayos.filter((_, i) => i !== idx))}
+                                                    className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg transition-colors"
+                                                    title="Eliminar ensayo"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -898,12 +926,18 @@ export default function RegistrarBitacoraPage() {
                 />
             )}
 
-            {/* Modal for new quality test (ensayo) */}
+            {/* Modal for new/edit quality test (ensayo) */}
             {showEnsayoModal && (
                 <EnsayoModal
-                    onClose={() => setShowEnsayoModal(false)}
+                    initialData={editingEnsayoIdx !== null ? ensayos[editingEnsayoIdx] : undefined}
+                    onClose={() => { setShowEnsayoModal(false); setEditingEnsayoIdx(null); }}
                     onSave={(ens) => {
-                        setEnsayos([...ensayos, ens]);
+                        if (editingEnsayoIdx !== null) {
+                            setEnsayos(ensayos.map((e, i) => i === editingEnsayoIdx ? ens : e));
+                            setEditingEnsayoIdx(null);
+                        } else {
+                            setEnsayos([...ensayos, ens]);
+                        }
                         setShowEnsayoModal(false);
                     }}
                 />
