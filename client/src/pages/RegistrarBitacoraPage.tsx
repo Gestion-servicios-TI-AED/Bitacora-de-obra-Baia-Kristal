@@ -835,7 +835,7 @@ export default function RegistrarBitacoraPage() {
                                     <FirmaDigital
                                         title="Firma del Residente de Obra"
                                         user={user}
-                                        enabled={user?.tipoUsuario === 'residente_obra'}
+                                        enabled={user?.tipoUsuario === 'residente_obra' || user?.tipoUsuario === 'admin'}
                                         signed={signed}
                                         onSign={(val) => setSigned(val)}
                                     />

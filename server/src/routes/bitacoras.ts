@@ -211,7 +211,8 @@ router.patch('/:id/firma-residente', authenticateToken, async (req: AuthRequest,
         const bitacora = await prisma.bitacora.findUnique({ where: { id: req.params.id as string } });
         if (!bitacora) { res.status(404).json({ error: 'Bitácora no encontrada' }); return; }
 
-        if (user.tipoUsuario !== 'residente_obra' || bitacora.creadoPorUsuarioId !== user.id) {
+        const isAdminOwner = user.tipoUsuario === 'admin' && bitacora.creadoPorUsuarioId === user.id;
+        if (!isAdminOwner && (user.tipoUsuario !== 'residente_obra' || bitacora.creadoPorUsuarioId !== user.id)) {
             res.status(403).json({ error: 'Solo el residente que creó esta bitácora puede firmar' });
             return;
         }
@@ -245,10 +246,7 @@ router.patch('/:id/firma-residente', authenticateToken, async (req: AuthRequest,
 router.patch('/:id/firma-director', authenticateToken, async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user!;
-        if (user.tipoUsuario !== 'director_obra' && user.tipoUsuario !== 'director_obra_general') {
-            res.status(403).json({ error: 'Solo el director de obra puede firmar aquí' });
-            return;
-        }
+        const isDirector = user.tipoUsuario === 'director_obra' || user.tipoUsuario === 'director_obra_general';
 
         const { comentariosDirector } = req.body;
         if (!comentariosDirector?.trim()) {
@@ -259,13 +257,22 @@ router.patch('/:id/firma-director', authenticateToken, async (req: AuthRequest, 
         const bitacora = await prisma.bitacora.findUnique({ where: { id: req.params.id as string } });
         if (!bitacora) { res.status(404).json({ error: 'Bitácora no encontrada' }); return; }
 
-        // Check director is assigned to this torre
-        const assigned = await prisma.usuarioTorre.findUnique({
-            where: { usuarioId_torreId: { usuarioId: user.id, torreId: bitacora.torreId } },
-        });
-        if (!assigned) {
-            res.status(403).json({ error: 'No está asignado a esta torre' });
+        const isAdminOwner = user.tipoUsuario === 'admin' && bitacora.creadoPorUsuarioId === user.id;
+
+        if (!isDirector && !isAdminOwner) {
+            res.status(403).json({ error: 'Solo el director de obra puede firmar aquí' });
             return;
+        }
+
+        // Check torre assignment (skip for admin owner)
+        if (!isAdminOwner) {
+            const assigned = await prisma.usuarioTorre.findUnique({
+                where: { usuarioId_torreId: { usuarioId: user.id, torreId: bitacora.torreId } },
+            });
+            if (!assigned) {
+                res.status(403).json({ error: 'No está asignado a esta torre' });
+                return;
+            }
         }
 
         const firmaData = JSON.stringify({
@@ -297,10 +304,7 @@ router.patch('/:id/firma-director', authenticateToken, async (req: AuthRequest, 
 router.patch('/:id/firma-interventor', authenticateToken, async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user!;
-        if (user.tipoUsuario !== 'interventoria' && user.tipoUsuario !== 'director_obra_general' && user.tipoUsuario !== 'supervisor_tecnico') {
-            res.status(403).json({ error: 'Solo el interventor, supervisor técnico o director general puede firmar aquí' });
-            return;
-        }
+        const isInterventor = user.tipoUsuario === 'interventoria' || user.tipoUsuario === 'director_obra_general' || user.tipoUsuario === 'supervisor_tecnico';
 
         const { comentariosInterventor } = req.body;
         if (!comentariosInterventor?.trim()) {
@@ -311,12 +315,22 @@ router.patch('/:id/firma-interventor', authenticateToken, async (req: AuthReques
         const bitacora = await prisma.bitacora.findUnique({ where: { id: req.params.id as string } });
         if (!bitacora) { res.status(404).json({ error: 'Bitácora no encontrada' }); return; }
 
-        const assigned = await prisma.usuarioTorre.findUnique({
-            where: { usuarioId_torreId: { usuarioId: user.id, torreId: bitacora.torreId } },
-        });
-        if (!assigned) {
-            res.status(403).json({ error: 'No está asignado a esta torre' });
+        const isAdminOwner = user.tipoUsuario === 'admin' && bitacora.creadoPorUsuarioId === user.id;
+
+        if (!isInterventor && !isAdminOwner) {
+            res.status(403).json({ error: 'Solo el interventor, supervisor técnico o director general puede firmar aquí' });
             return;
+        }
+
+        // Check torre assignment (skip for admin owner)
+        if (!isAdminOwner) {
+            const assigned = await prisma.usuarioTorre.findUnique({
+                where: { usuarioId_torreId: { usuarioId: user.id, torreId: bitacora.torreId } },
+            });
+            if (!assigned) {
+                res.status(403).json({ error: 'No está asignado a esta torre' });
+                return;
+            }
         }
 
         // Determine empresa for firma data
