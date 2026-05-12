@@ -19,17 +19,16 @@ export default function ConfiguracionPage() {
     const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
     const tabs: { key: Tab; label: string; icon: any }[] = [
-        { key: 'proyectos', label: 'Proyectos', icon: Building2 },
+        { key: 'proyectos', label: SINGLE_PROJECT_MODE ? 'Proyecto' : 'Proyectos', icon: Building2 },
         { key: 'torres', label: 'Frentes', icon: Layers },
         { key: 'usuarios', label: 'Usuarios', icon: Users },
         { key: 'contratistas', label: 'Contratistas', icon: Briefcase },
-        { key: 'interventoras', label: 'Empresas Interventoras', icon: Briefcase },
+        { key: 'interventoras', label: 'Supervisión', icon: Shield },
         { key: 'empresas_contratantes', label: 'Empresas Contratantes', icon: Building2 },
         { key: 'festivos', label: 'Festivos', icon: Calendar },
     ];
 
-    // In single-project mode, hide the Proyectos tab since the project is locked
-    const visibleTabs = SINGLE_PROJECT_MODE ? tabs.filter(t => t.key !== 'proyectos') : tabs;
+    const visibleTabs = tabs;
 
     return (
         <div className="max-w-6xl mx-auto animate-fadeIn px-2 sm:px-0">
@@ -89,6 +88,14 @@ const btnSecondary = "flex items-center justify-center gap-2 px-4 py-2 bg-white 
 // ── PROYECTOS TAB ──
 function ProyectosTab({ showToast }: { showToast: (m: string) => void }) {
     const queryClient = useQueryClient();
+    const { selectedProjectId } = useProjectStore();
+
+    // ── SINGLE PROJECT MODE: inline edit form for the active project ──
+    if (SINGLE_PROJECT_MODE && selectedProjectId) {
+        return <ProyectoEditForm proyectoId={selectedProjectId} showToast={showToast} queryClient={queryClient} />;
+    }
+
+    // ── MULTI PROJECT MODE: full CRUD table ──
     const [showForm, setShowForm] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
     const [nombre, setNombre] = useState('');
@@ -109,25 +116,15 @@ function ProyectosTab({ showToast }: { showToast: (m: string) => void }) {
 
     const saveMutation = useMutation({
         mutationFn: async () => {
-            if (editId) {
-                return (await api.put(`/proyectos/${editId}`, { nombre, direccion, ciudad, abreviatura, empresaContratanteId })).data;
-            }
+            if (editId) return (await api.put(`/proyectos/${editId}`, { nombre, direccion, ciudad, abreviatura, empresaContratanteId })).data;
             return (await api.post('/proyectos', { nombre, direccion, ciudad, abreviatura, empresaContratanteId })).data;
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['proyectos'] });
-            resetForm();
-            showToast(editId ? 'Proyecto actualizado' : 'Proyecto creado');
-        },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['proyectos'] }); resetForm(); showToast(editId ? 'Proyecto actualizado' : 'Proyecto creado'); },
     });
 
     const toggleMutation = useMutation({
-        mutationFn: async ({ id, activo }: { id: string; activo: boolean }) => {
-            return (await api.put(`/proyectos/${id}`, { activo })).data;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['proyectos'] });
-        },
+        mutationFn: async ({ id, activo }: { id: string; activo: boolean }) => (await api.put(`/proyectos/${id}`, { activo })).data,
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['proyectos'] }),
     });
 
     const resetForm = () => { setShowForm(false); setEditId(null); setNombre(''); setDireccion(''); setCiudad(''); setAbreviatura(''); setEmpresaContratanteId(''); };
@@ -137,48 +134,30 @@ function ProyectosTab({ showToast }: { showToast: (m: string) => void }) {
         <div className="p-4 sm:p-0">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                 <h2 className="text-lg font-semibold text-slate-800">Catálogo de Proyectos</h2>
-                <button onClick={() => { resetForm(); setShowForm(true); }} className={btnPrimary}>
-                    <Plus className="w-4 h-4" /> Nuevo Proyecto
-                </button>
+                <button onClick={() => { resetForm(); setShowForm(true); }} className={btnPrimary}><Plus className="w-4 h-4" /> Nuevo Proyecto</button>
             </div>
-
             {showForm && (
                 <div className="border border-slate-200/80 rounded-2xl p-5 mb-6 bg-slate-50/50 shadow-sm animate-fadeIn">
                     <h3 className="text-sm font-medium text-slate-800 mb-4">{editId ? 'Editar Proyecto' : 'Registrar Nuevo Proyecto'}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-                        <div>
-                            <label className={labelClasses}>Nombre del Proyecto</label>
-                            <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClasses} placeholder="Ej: Baia Kristal" />
-                        </div>
-                        <div>
-                            <label className={labelClasses}>Abreviatura</label>
-                            <input value={abreviatura} onChange={(e) => setAbreviatura(e.target.value.toUpperCase())} className={inputClasses} placeholder="Ej: BK" maxLength={10} />
-                        </div>
-                        <div>
-                            <label className={labelClasses}>Ciudad</label>
-                            <CitySearchSelect value={ciudad} onChange={setCiudad} />
-                        </div>
-                        <div>
-                            <label className={labelClasses}>Dirección</label>
-                            <input value={direccion} onChange={(e) => setDireccion(e.target.value)} className={inputClasses} placeholder="Ubicación de la obra" />
-                        </div>
+                        <div><label className={labelClasses}>Nombre</label><input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClasses} /></div>
+                        <div><label className={labelClasses}>Abreviatura</label><input value={abreviatura} onChange={(e) => setAbreviatura(e.target.value.toUpperCase())} className={inputClasses} maxLength={10} /></div>
+                        <div><label className={labelClasses}>Ciudad</label><CitySearchSelect value={ciudad} onChange={setCiudad} /></div>
+                        <div><label className={labelClasses}>Dirección</label><input value={direccion} onChange={(e) => setDireccion(e.target.value)} className={inputClasses} /></div>
                         <div className="md:col-span-2">
                             <label className={labelClasses}>Empresa Contratante</label>
                             <select value={empresaContratanteId} onChange={(e) => setEmpresaContratanteId(e.target.value)} className={selectClasses}>
-                                <option value="">Seleccionar contratante...</option>
+                                <option value="">Seleccionar...</option>
                                 {contratantes.map((c: any) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                             </select>
                         </div>
                     </div>
                     <div className="flex gap-3 justify-end pt-2 border-t border-slate-200/60">
                         <button onClick={resetForm} className={btnSecondary}>Cancelar</button>
-                        <button onClick={() => saveMutation.mutate()} disabled={!nombre} className={btnPrimary}>
-                            <Save className="w-4 h-4" /> Guardar
-                        </button>
+                        <button onClick={() => saveMutation.mutate()} disabled={!nombre} className={btnPrimary}><Save className="w-4 h-4" /> Guardar</button>
                     </div>
                 </div>
             )}
-
             <div className="border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left whitespace-nowrap">
@@ -188,58 +167,174 @@ function ProyectosTab({ showToast }: { showToast: (m: string) => void }) {
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Contratante</th>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Abrev.</th>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Ciudad</th>
-                                <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider">Dirección</th>
-                                <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider text-center">Torres</th>
                                 <th className="py-3.5 px-5 text-slate-500 font-semibold text-xs uppercase tracking-wider text-right">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white">
                             {proyectos.map((p: any) => (
                                 <tr key={p.id} className="hover:bg-slate-50/80 transition-colors duration-150 group">
-                                    <td className="py-3.5 px-5">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-2 h-2 rounded-full ${p.activo ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
-                                            <span className="font-semibold text-slate-900">{p.nombre}</span>
-                                        </div>
-                                    </td>
-                                    <td className="py-3.5 px-5">
-                                        {p.empresaContratante?.nombre ? (
-                                            <div className="flex items-center gap-1.5 text-slate-600">
-                                                <Briefcase className="w-3.5 h-3.5 text-slate-400" />
-                                                <span className="font-medium line-clamp-1">{p.empresaContratante.nombre}</span>
-                                            </div>
-                                        ) : <span className="text-slate-400 italic text-xs">Sin contratante</span>}
-                                    </td>
-                                    <td className="py-3.5 px-5">
-                                        {p.abreviatura ? <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200 border border-slate-300/50">{p.abreviatura}</span> : <span className="text-slate-400 italic text-xs">N/A</span>}
-                                    </td>
-                                    <td className="py-3.5 px-5 font-medium text-slate-700">{p.ciudad || <span className="text-slate-400 italic text-xs">Sin ciudad</span>}</td>
-                                    <td className="py-3.5 px-5 text-slate-600 truncate max-w-[200px]">{p.direccion || <span className="text-slate-400 italic text-xs">Sin dirección</span>}</td>
-                                    <td className="py-3.5 px-5 text-center">
-                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary font-semibold text-xs">{p._count?.torres || 0}</span>
-                                    </td>
+                                    <td className="py-3.5 px-5"><div className="flex items-center gap-3"><div className={`w-2 h-2 rounded-full ${p.activo ? 'bg-emerald-500' : 'bg-slate-300'}`}></div><span className="font-semibold text-slate-900">{p.nombre}</span></div></td>
+                                    <td className="py-3.5 px-5">{p.empresaContratante?.nombre || <span className="text-slate-400 italic text-xs">Sin contratante</span>}</td>
+                                    <td className="py-3.5 px-5">{p.abreviatura || <span className="text-slate-400 italic text-xs">—</span>}</td>
+                                    <td className="py-3.5 px-5">{p.ciudad || <span className="text-slate-400 italic text-xs">—</span>}</td>
                                     <td className="py-3.5 px-5 text-right">
                                         <div className="flex items-center justify-end gap-2">
-                                            <button onClick={() => startEdit(p)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors tooltip-trigger" title="Editar">
-                                                <Edit className="w-4 h-4" />
-                                            </button>
-                                            <button onClick={() => toggleMutation.mutate({ id: p.id, activo: !p.activo })} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title={p.activo ? "Inactivar" : "Activar"}>
+                                            <button onClick={() => startEdit(p)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="Editar"><Edit className="w-4 h-4" /></button>
+                                            <button onClick={() => toggleMutation.mutate({ id: p.id, activo: !p.activo })} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
                                                 {p.activo ? <ToggleRight className="w-5 h-5 text-emerald-500" /> : <ToggleLeft className="w-5 h-5 text-slate-300" />}
                                             </button>
                                         </div>
                                     </td>
                                 </tr>
                             ))}
-                            {proyectos.length === 0 && (
-                                <tr>
-                                    <td colSpan={6} className="py-12 text-center text-slate-500 bg-slate-50">
-                                        No hay proyectos registrados.
-                                    </td>
-                                </tr>
-                            )}
+                            {proyectos.length === 0 && <tr><td colSpan={5} className="py-12 text-center text-slate-500 bg-slate-50">No hay proyectos registrados.</td></tr>}
                         </tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+    );
+}
+
+// ── SINGLE-PROJECT EDIT FORM ──
+function ProyectoEditForm({ proyectoId, showToast, queryClient }: { proyectoId: string; showToast: (m: string) => void; queryClient: any }) {
+    const { data: proyecto, isLoading } = useQuery({
+        queryKey: ['proyecto', proyectoId],
+        queryFn: async () => (await api.get(`/proyectos/${proyectoId}`)).data,
+    });
+
+    const { data: contratantes = [] } = useQuery({
+        queryKey: ['empresas_contratantes'],
+        queryFn: async () => (await api.get('/empresas-contratantes')).data,
+    });
+
+    const { data: interventoras = [] } = useQuery({
+        queryKey: ['interventoras'],
+        queryFn: async () => (await api.get('/empresas-interventoria')).data,
+    });
+
+    const [nombre, setNombre] = useState('');
+    const [abreviatura, setAbreviatura] = useState('');
+    const [ciudad, setCiudad] = useState('');
+    const [direccion, setDireccion] = useState('');
+    const [empresaContratanteId, setEmpresaContratanteId] = useState('');
+    const [empresaInterventoriaId, setEmpresaInterventoriaId] = useState('');
+    const [hydrated, setHydrated] = useState(false);
+
+    // Populate form once project loads
+    if (proyecto && !hydrated) {
+        setNombre(proyecto.nombre || '');
+        setAbreviatura(proyecto.abreviatura || '');
+        setCiudad(proyecto.ciudad || '');
+        setDireccion(proyecto.direccion || '');
+        setEmpresaContratanteId(proyecto.empresaContratanteId || '');
+        setEmpresaInterventoriaId(proyecto.empresaInterventoriaId || '');
+        setHydrated(true);
+    }
+
+    const saveMutation = useMutation({
+        mutationFn: async () => (await api.put(`/proyectos/${proyectoId}`, {
+            nombre, abreviatura, ciudad, direccion, empresaContratanteId, empresaInterventoriaId,
+        })).data,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['proyecto', proyectoId] });
+            queryClient.invalidateQueries({ queryKey: ['proyectos'] });
+            showToast('Datos del proyecto actualizados correctamente');
+        },
+        onError: (err: any) => alert(err.response?.data?.error || 'Error al guardar'),
+    });
+
+    if (isLoading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin" /></div>;
+
+    const tipoInterventora = (id: string) => {
+        const emp = interventoras.find((e: any) => e.id === id);
+        return emp?.tipo === 'supervision_tecnica' ? 'Supervisión Técnica Independiente' : 'Interventoría';
+    };
+
+    return (
+        <div className="p-4 sm:p-0">
+            <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+                    <Building2 className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                    <h2 className="text-lg font-semibold text-slate-800">Datos del Proyecto</h2>
+                    <p className="text-xs text-slate-500">Esta información alimenta las actas de bitácora generadas.</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+                <div>
+                    <label className={labelClasses}>Nombre del Proyecto</label>
+                    <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputClasses} placeholder="Ej: Baia Kristal" />
+                </div>
+                <div>
+                    <label className={labelClasses}>Abreviatura</label>
+                    <input value={abreviatura} onChange={(e) => setAbreviatura(e.target.value.toUpperCase())} className={inputClasses} placeholder="Ej: BK" maxLength={10} />
+                </div>
+                <div>
+                    <label className={labelClasses}>Ciudad</label>
+                    <CitySearchSelect value={ciudad} onChange={setCiudad} />
+                </div>
+                <div>
+                    <label className={labelClasses}>Dirección / Localización</label>
+                    <input value={direccion} onChange={(e) => setDireccion(e.target.value)} className={inputClasses} placeholder="Ej: Anillo vial Km 12 - 655" />
+                </div>
+                <div>
+                    <label className={labelClasses}>Empresa Contratante</label>
+                    <select value={empresaContratanteId} onChange={(e) => setEmpresaContratanteId(e.target.value)} className={selectClasses}>
+                        <option value="">Sin empresa contratante</option>
+                        {contratantes.map((c: any) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                    </select>
+                    {empresaContratanteId && (
+                        <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                            {contratantes.find((c: any) => c.id === empresaContratanteId)?.nombre}
+                        </p>
+                    )}
+                </div>
+                <div>
+                    <label className={labelClasses}>Empresa de Supervisión Técnica</label>
+                    <select value={empresaInterventoriaId} onChange={(e) => setEmpresaInterventoriaId(e.target.value)} className={selectClasses}>
+                        <option value="">Sin empresa de supervisión</option>
+                        {interventoras.map((e: any) => <option key={e.id} value={e.id}>{e.nombre} — {e.tipo === 'supervision_tecnica' ? 'Sup. Técnica' : 'Interventoría'}</option>)}
+                    </select>
+                    {empresaInterventoriaId && (
+                        <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                            {interventoras.find((e: any) => e.id === empresaInterventoriaId)?.nombre} · {tipoInterventora(empresaInterventoriaId)}
+                        </p>
+                    )}
+                </div>
+            </div>
+
+            {/* Preview card — shows what the acta will display */}
+            <div className="mb-6 p-5 bg-slate-50 border border-slate-200 rounded-2xl">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Vista previa en el acta de bitácora</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Proyecto</span>
+                        <span className="font-semibold text-slate-800">{nombre || <span className="text-slate-300 italic">Sin nombre</span>}</span>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Localización</span>
+                        <span className="font-semibold text-slate-800">{direccion || <span className="text-slate-300 italic">Sin dirección</span>}</span>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Empresa Contratante</span>
+                        <span className="font-semibold text-slate-800">{contratantes.find((c: any) => c.id === empresaContratanteId)?.nombre || <span className="text-slate-300 italic">No asignada</span>}</span>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Empresa de Supervisión Técnica</span>
+                        <span className="font-semibold text-slate-800">{interventoras.find((e: any) => e.id === empresaInterventoriaId)?.nombre || <span className="text-slate-300 italic">No asignada</span>}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex justify-end">
+                <button onClick={() => saveMutation.mutate()} disabled={!nombre || saveMutation.isPending} className={btnPrimary}>
+                    {saveMutation.isPending ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Guardando...</> : <><Save className="w-4 h-4" /> Guardar Cambios</>}
+                </button>
             </div>
         </div>
     );
