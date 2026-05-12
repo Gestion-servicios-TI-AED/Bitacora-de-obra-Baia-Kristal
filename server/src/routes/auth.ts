@@ -73,6 +73,43 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res: Response) => 
     }
 });
 
+// PUT /api/auth/change-password
+router.put('/change-password', authenticateToken, async (req: AuthRequest, res: Response) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            res.status(400).json({ error: 'Contraseña actual y nueva son requeridas' });
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' });
+            return;
+        }
+
+        const usuario = await prisma.usuario.findUnique({ where: { id: req.user!.id } });
+        if (!usuario) {
+            res.status(404).json({ error: 'Usuario no encontrado' });
+            return;
+        }
+
+        const valid = await bcrypt.compare(currentPassword, usuario.passwordHash);
+        if (!valid) {
+            res.status(400).json({ error: 'La contraseña actual es incorrecta' });
+            return;
+        }
+
+        const newHash = await bcrypt.hash(newPassword, 10);
+        await prisma.usuario.update({ where: { id: req.user!.id }, data: { passwordHash: newHash } });
+
+        res.json({ message: 'Contraseña actualizada correctamente' });
+    } catch (error) {
+        console.error('Change password error:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
 // POST /api/auth/logout
 router.post('/logout', (_req, res: Response) => {
     res.json({ message: 'Sesión cerrada exitosamente' });

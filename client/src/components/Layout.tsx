@@ -7,7 +7,8 @@ import { useProjectStore, SINGLE_PROJECT_MODE, DEFAULT_PROJECT_NAME } from '../s
 import {
     Building2, ClipboardList, FolderOpen, Settings,
     LogOut, Menu, X, ChevronLeft, User, Clock,
-    Sun, CloudRain, CloudLightning, Cloud, CloudSnow, CloudFog
+    Sun, CloudRain, CloudLightning, Cloud, CloudSnow, CloudFog,
+    KeyRound, Eye, EyeOff, CheckCircle2
 } from 'lucide-react';
 
 const getWeatherIcon = (code: number, className: string) => {
@@ -29,6 +30,37 @@ export default function Layout() {
 
     const [time, setTime] = useState(new Date());
     const [weather, setWeather] = useState<{ temp: number, code: number } | null>(null);
+
+    // Change password modal state
+    const [showChangePwd, setShowChangePwd] = useState(false);
+    const [pwdCurrent, setPwdCurrent] = useState('');
+    const [pwdNew, setPwdNew] = useState('');
+    const [pwdConfirm, setPwdConfirm] = useState('');
+    const [showCurrent, setShowCurrent] = useState(false);
+    const [showNew, setShowNew] = useState(false);
+    const [pwdLoading, setPwdLoading] = useState(false);
+    const [pwdMsg, setPwdMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+    const handleChangePwd = async () => {
+        if (pwdNew !== pwdConfirm) { setPwdMsg({ type: 'err', text: 'Las contraseñas nuevas no coinciden' }); return; }
+        if (pwdNew.length < 6) { setPwdMsg({ type: 'err', text: 'Mínimo 6 caracteres' }); return; }
+        setPwdLoading(true); setPwdMsg(null);
+        try {
+            await api.put('/auth/change-password', { currentPassword: pwdCurrent, newPassword: pwdNew });
+            setPwdMsg({ type: 'ok', text: 'Contraseña actualizada correctamente' });
+            setPwdCurrent(''); setPwdNew(''); setPwdConfirm('');
+        } catch (err: any) {
+            setPwdMsg({ type: 'err', text: err.response?.data?.error || 'Error al cambiar contraseña' });
+        } finally {
+            setPwdLoading(false);
+        }
+    };
+
+    const closePwdModal = () => {
+        setShowChangePwd(false);
+        setPwdCurrent(''); setPwdNew(''); setPwdConfirm('');
+        setPwdMsg(null); setShowCurrent(false); setShowNew(false);
+    };
 
     // Clock
     useEffect(() => {
@@ -217,9 +249,18 @@ export default function Layout() {
                             </div>
                         )}
                     </div>
+                    {!collapsed && (
+                        <button
+                            onClick={() => setShowChangePwd(true)}
+                            className="mt-2 flex items-center gap-2 text-blue-200/60 hover:text-blue-200 text-xs transition-colors w-full"
+                        >
+                            <KeyRound className="w-3.5 h-3.5" />
+                            <span>Cambiar contraseña</span>
+                        </button>
+                    )}
                     <button
                         onClick={handleLogout}
-                        className={`mt-3 flex items-center gap-2 text-red-300/80 hover:text-red-300 text-sm transition-colors w-full ${collapsed ? 'justify-center' : ''}`}
+                        className={`mt-2 flex items-center gap-2 text-red-300/80 hover:text-red-300 text-sm transition-colors w-full ${collapsed ? 'justify-center mt-3' : ''}`}
                     >
                         <LogOut className="w-4 h-4" />
                         {!collapsed && <span>Cerrar sesión</span>}
@@ -288,6 +329,86 @@ export default function Layout() {
                     <Outlet />
                 </main>
             </div>
+
+            {/* Change password modal */}
+            {showChangePwd && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-slate-200">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                            <h2 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                                <KeyRound className="w-4 h-4 text-primary" /> Cambiar contraseña
+                            </h2>
+                            <button onClick={closePwdModal} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                                <X className="w-4 h-4 text-slate-400" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            {/* Current password */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 mb-1">Contraseña actual</label>
+                                <div className="relative">
+                                    <input
+                                        type={showCurrent ? 'text' : 'password'}
+                                        value={pwdCurrent}
+                                        onChange={e => setPwdCurrent(e.target.value)}
+                                        className="w-full px-3 py-2.5 pr-10 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                        placeholder="••••••••"
+                                    />
+                                    <button type="button" onClick={() => setShowCurrent(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                        {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    </button>
+                                </div>
+                            </div>
+                            {/* New password */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 mb-1">Nueva contraseña</label>
+                                <div className="relative">
+                                    <input
+                                        type={showNew ? 'text' : 'password'}
+                                        value={pwdNew}
+                                        onChange={e => setPwdNew(e.target.value)}
+                                        className="w-full px-3 py-2.5 pr-10 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                        placeholder="Mínimo 6 caracteres"
+                                    />
+                                    <button type="button" onClick={() => setShowNew(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                        {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    </button>
+                                </div>
+                            </div>
+                            {/* Confirm */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 mb-1">Confirmar nueva contraseña</label>
+                                <input
+                                    type="password"
+                                    value={pwdConfirm}
+                                    onChange={e => setPwdConfirm(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleChangePwd()}
+                                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    placeholder="Repite la nueva contraseña"
+                                />
+                            </div>
+                            {pwdMsg && (
+                                <div className={`flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg ${pwdMsg.type === 'ok' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'}`}>
+                                    {pwdMsg.type === 'ok' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <X className="w-4 h-4 shrink-0" />}
+                                    {pwdMsg.text}
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex justify-end gap-3 px-6 pb-5">
+                            <button onClick={closePwdModal} className="px-5 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors">
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleChangePwd}
+                                disabled={pwdLoading || !pwdCurrent || !pwdNew || !pwdConfirm}
+                                className="px-5 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl text-sm font-bold shadow-sm disabled:opacity-50 disabled:pointer-events-none transition-all"
+                            >
+                                {pwdLoading ? 'Guardando...' : 'Guardar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
