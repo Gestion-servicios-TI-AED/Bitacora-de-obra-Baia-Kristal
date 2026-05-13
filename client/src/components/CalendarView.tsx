@@ -155,7 +155,7 @@ export default function CalendarView({ bitacoras, festivos, userRole, onNavigate
                                     {day}
                                 </span>
                                 <div className="flex items-center gap-0.5">
-                                    {hasRetroactive && <Clock className="w-3 h-3 text-amber-500" title="Contiene registro retroactivo" />}
+                                    {hasRetroactive && <span title="Contiene registro retroactivo"><Clock className="w-3 h-3 text-amber-500" /></span>}
                                     {isFestivo && <span className="text-xs">🎉</span>}
                                     {isSunday && !isFestivo && <span className="text-xs text-gray-400">Dom</span>}
                                 </div>
