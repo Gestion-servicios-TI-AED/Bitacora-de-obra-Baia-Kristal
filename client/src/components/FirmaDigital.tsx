@@ -41,7 +41,7 @@ export default function FirmaDigital({ title, user, enabled, signed, onSign, fir
                     <div className="flex items-center gap-2 mt-2 pt-2 border-t border-green-200">
                         <CheckCircle className="w-4 h-4 text-green-600" />
                         <span className="text-xs text-green-700 font-medium">
-                            Firmado digitalmente — {firmaTimestamp ? new Date(firmaTimestamp).toLocaleString('es-CO') : ''}
+                            Firmado digitalmente — {firmaTimestamp ? new Date(firmaTimestamp).toLocaleString('es-CO', { timeZone: 'America/Bogota' }) : ''}
                         </span>
                     </div>
                 </div>

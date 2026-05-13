@@ -58,7 +58,7 @@ export default function ActividadModal({ torreId, onClose, onSave, initialData }
     ];
 
     const isValidActividad = actividadEjecutada && contratistaId && trabajadoresEnObra && horasTrabajadas &&
-        parseInt(horasTrabajadas) >= 1 && parseInt(horasTrabajadas) <= 7 &&
+        parseInt(horasTrabajadas) >= 1 && parseInt(horasTrabajadas) <= 8 &&
         climaManana && climaTarde && foto1 && foto2 && notasGenerales;
 
     const isValidVisita = descripcionVisita.trim() &&
@@ -314,14 +314,17 @@ export default function ActividadModal({ torreId, onClose, onSave, initialData }
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-2">Tiempo Efectivo (1-7) <span className="text-rose-500">*</span></label>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Tiempo Efectivo (1-8) <span className="text-rose-500">*</span></label>
                                         <div className="relative">
                                             <input
                                                 type="number"
                                                 min="1"
-                                                max="7"
+                                                max="8"
                                                 value={horasTrabajadas}
-                                                onChange={(e) => setHorasTrabajadas(e.target.value)}
+                                                onChange={(e) => {
+                                                    const v = parseInt(e.target.value);
+                                                    setHorasTrabajadas(isNaN(v) ? e.target.value : String(Math.min(v, 8)));
+                                                }}
                                                 className="w-full pl-4 pr-16 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-semibold text-slate-700"
                                                 placeholder="0"
                                             />

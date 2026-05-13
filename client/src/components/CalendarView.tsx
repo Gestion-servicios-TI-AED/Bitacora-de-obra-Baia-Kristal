@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Eye, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Eye, X, Clock } from 'lucide-react';
 
 const estadoBadge: Record<string, { label: string; class: string }> = {
     nuevo: { label: 'Nuevo', class: 'bg-gray-100 text-gray-600' },
@@ -103,6 +103,11 @@ export default function CalendarView({ bitacoras, festivos, userRole, onNavigate
                     const isFestivo = festivoSet.has(dateStr);
                     const registros = bitacoraMap.get(dateStr) || [];
                     const hasRegistro = registros.length > 0;
+                    const hasRetroactive = registros.some((b: any) => {
+                        if (!b.createdAt) return false;
+                        const createdDate = new Date(b.createdAt).toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+                        return createdDate > b.fechaRegistro;
+                    });
                     const today = new Date();
                     const localTodayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
                     const isToday = dateStr === localTodayStr;
@@ -149,18 +154,27 @@ export default function CalendarView({ bitacoras, festivos, userRole, onNavigate
                                 <span className={`text-sm font-medium ${isToday ? 'text-primary font-bold' : isSunday ? 'text-red-400' : 'text-gray-700'}`}>
                                     {day}
                                 </span>
-                                {isFestivo && <span className="text-xs">🎉</span>}
-                                {isSunday && !isFestivo && <span className="text-xs text-gray-400">Dom</span>}
+                                <div className="flex items-center gap-0.5">
+                                    {hasRetroactive && <Clock className="w-3 h-3 text-amber-500" title="Contiene registro retroactivo" />}
+                                    {isFestivo && <span className="text-xs">🎉</span>}
+                                    {isSunday && !isFestivo && <span className="text-xs text-gray-400">Dom</span>}
+                                </div>
                             </div>
                             {hasRegistro && (
                                 <div className="mt-1 space-y-0.5">
-                                    {registros.slice(0, 2).map((r: any, i: number) => (
-                                        <div key={i} className="text-[10px] font-medium text-green-700 truncate leading-tight">
-                                            {(r.proyecto?.abreviatura && r.torre?.abreviatura)
-                                                ? `${r.proyecto.abreviatura}-${r.torre.abreviatura}-${String(r.numeroFolio).padStart(3, '0')}`
-                                                : `#${r.numeroFolio}`} {r.torre?.nombre?.replace('ETAPA 3 - ', '')}
-                                        </div>
-                                    ))}
+                                    {registros.slice(0, 2).map((r: any, i: number) => {
+                                        const isRetro = r.createdAt && new Date(r.createdAt).toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }) > r.fechaRegistro;
+                                        return (
+                                            <div key={i} className={`flex items-center gap-1 text-[10px] font-medium truncate leading-tight ${isRetro ? 'text-amber-700' : 'text-green-700'}`}>
+                                                {isRetro && <Clock className="w-2.5 h-2.5 shrink-0" />}
+                                                <span className="truncate">
+                                                    {(r.proyecto?.abreviatura && r.torre?.abreviatura)
+                                                        ? `${r.proyecto.abreviatura}-${r.torre.abreviatura}-${String(r.numeroFolio).padStart(3, '0')}`
+                                                        : `#${r.numeroFolio}`} {r.torre?.nombre?.replace('ETAPA 3 - ', '')}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                     {registros.length > 2 && (
                                         <div className="text-[10px] text-green-600">+{registros.length - 2} más</div>
                                     )}
@@ -194,7 +208,9 @@ export default function CalendarView({ bitacoras, festivos, userRole, onNavigate
                                         </button>
                                     </div>
                                     <div className="max-h-48 overflow-y-auto">
-                                        {registros.map((r: any) => (
+                                        {registros.map((r: any) => {
+                                            const isRetro = r.createdAt && new Date(r.createdAt).toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }) > r.fechaRegistro;
+                                            return (
                                             <button
                                                 key={r.id}
                                                 onClick={(e) => { e.stopPropagation(); setPopoverDate(null); onNavigate(r.id); }}
@@ -211,12 +227,18 @@ export default function CalendarView({ bitacoras, festivos, userRole, onNavigate
                                                         <span className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-semibold ${estadoBadge[r.estadoDiligencia]?.class || 'bg-gray-100 text-gray-600'}`}>
                                                             {estadoBadge[r.estadoDiligencia]?.label || r.estadoDiligencia}
                                                         </span>
+                                                        {isRetro && (
+                                                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-100 text-amber-700">
+                                                                <Clock className="w-2.5 h-2.5" /> Retroactivo
+                                                            </span>
+                                                        )}
                                                         <span className="text-[10px] text-text-light truncate">{r.creadoPor?.nombre} {r.creadoPor?.apellido}</span>
                                                     </div>
                                                 </div>
                                                 <Eye className="w-3.5 h-3.5 text-primary/50 shrink-0" />
                                             </button>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
 
                                     {isPrivilegedUser && isPast && (
@@ -241,6 +263,10 @@ export default function CalendarView({ bitacoras, festivos, userRole, onNavigate
                 <div className="flex items-center gap-1.5">
                     <div className="w-3 h-3 rounded-sm bg-green-100 border border-green-200"></div>
                     Con registro
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <Clock className="w-3 h-3 text-amber-500" />
+                    Registro retroactivo
                 </div>
                 <div className="flex items-center gap-1.5">
                     <div className="w-3 h-3 rounded-sm bg-red-50 border border-red-200/50"></div>
