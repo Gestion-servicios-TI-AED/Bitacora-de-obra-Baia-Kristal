@@ -374,6 +374,7 @@ export default function DetalleBitacoraPage() {
 
                     {/* Info cards */}
                     <div className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
+                        {/* Fila 1: empresas */}
                         <div className="flex gap-2 items-start p-2.5 bg-slate-50/80 rounded-lg border border-slate-200/60 hover:bg-slate-50 transition-colors border-l-4 border-l-primary/60">
                             <MapPin className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
                             <div>
@@ -389,19 +390,18 @@ export default function DetalleBitacoraPage() {
                             </div>
                         </div>
                         <div className="flex gap-2 items-start p-2.5 bg-slate-50/80 rounded-lg border border-slate-200/60 hover:bg-slate-50 transition-colors">
-                            <HardHat className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                            <Shield className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
                             <div>
-                                <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">Director de Obra</span>
-                                <span className="font-semibold text-slate-700 text-xs">{directorAsignado ? `${directorAsignado.nombre} ${directorAsignado.apellido}` : 'No asignado'}</span>
+                                <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">Supervisión Técnica</span>
+                                <span className="font-semibold text-slate-700 text-xs">
+                                    {bitacora.firmaInterventorData
+                                        ? (JSON.parse(bitacora.firmaInterventorData)?.empresa || interventorAsignado?.empresaInterventoria?.nombre || 'No especificada')
+                                        : (bitacora.proyecto?.empresaInterventoria?.nombre || interventorAsignado?.empresaInterventoria?.nombre || 'No asignada')}
+                                </span>
                             </div>
                         </div>
-                        <div className="flex gap-2 items-start p-2.5 bg-slate-50/80 rounded-lg border border-slate-200/60 hover:bg-slate-50 transition-colors">
-                            <HardHat className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                            <div>
-                                <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">Director General de Obra</span>
-                                <span className="font-semibold text-slate-700 text-xs">{directorGeneralAsignado ? `${directorGeneralAsignado.nombre} ${directorGeneralAsignado.apellido}` : 'No asignado'}</span>
-                            </div>
-                        </div>
+
+                        {/* Fila 2: personal */}
                         <div className="flex gap-2 items-start p-2.5 bg-slate-50/80 rounded-lg border border-slate-200/60 hover:bg-slate-50 transition-colors">
                             <User className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
                             <div>
@@ -421,14 +421,17 @@ export default function DetalleBitacoraPage() {
                             </div>
                         </div>
                         <div className="flex gap-2 items-start p-2.5 bg-slate-50/80 rounded-lg border border-slate-200/60 hover:bg-slate-50 transition-colors">
-                            <Shield className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                            <HardHat className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
                             <div>
-                                <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">Supervisión Técnica</span>
-                                <span className="font-semibold text-slate-700 text-xs">
-                                    {bitacora.firmaInterventorData
-                                        ? (JSON.parse(bitacora.firmaInterventorData)?.empresa || interventorAsignado?.empresaInterventoria?.nombre || 'No especificada')
-                                        : (bitacora.proyecto?.empresaInterventoria?.nombre || interventorAsignado?.empresaInterventoria?.nombre || 'No asignada')}
-                                </span>
+                                <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">Director de Obra</span>
+                                <span className="font-semibold text-slate-700 text-xs">{directorAsignado ? `${directorAsignado.nombre} ${directorAsignado.apellido}` : 'No asignado'}</span>
+                            </div>
+                        </div>
+                        <div className="flex gap-2 items-start p-2.5 bg-slate-50/80 rounded-lg border border-slate-200/60 hover:bg-slate-50 transition-colors">
+                            <HardHat className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                            <div>
+                                <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">Director General de Obra</span>
+                                <span className="font-semibold text-slate-700 text-xs">{directorGeneralAsignado ? `${directorGeneralAsignado.nombre} ${directorGeneralAsignado.apellido}` : 'No asignado'}</span>
                             </div>
                         </div>
                     </div>

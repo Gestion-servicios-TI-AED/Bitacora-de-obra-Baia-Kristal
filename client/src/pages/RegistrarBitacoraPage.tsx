@@ -179,16 +179,17 @@ export default function RegistrarBitacoraPage() {
             });
             const bitacoraId = bitRes.data.id;
 
-            // 1b. Upload incident photo if exists
+            // 2. Upload actividades, ensayos y foto de incidente en paralelo
+            const uploads: Promise<any>[] = [];
+
             if (fotoAccidente) {
                 const incData = new FormData();
                 incData.append('fotoAccidente', fotoAccidente);
-                await api.patch(`/bitacoras/${bitacoraId}/foto-accidente`, incData, {
+                uploads.push(api.patch(`/bitacoras/${bitacoraId}/foto-accidente`, incData, {
                     headers: { 'Content-Type': 'multipart/form-data' },
-                });
+                }));
             }
 
-            // 2. Create activities / visitas
             for (const act of actividades) {
                 const formData = new FormData();
                 formData.append('bitacoraId', bitacoraId);
@@ -209,23 +210,22 @@ export default function RegistrarBitacoraPage() {
                 }
                 if (act.foto1) formData.append('foto1', act.foto1);
                 if (act.foto2) formData.append('foto2', act.foto2);
-
-                await api.post('/actividades', formData, {
+                uploads.push(api.post('/actividades', formData, {
                     headers: { 'Content-Type': 'multipart/form-data' },
-                });
+                }));
             }
 
-            // 2b. Create ensayos
             for (const ens of ensayos) {
                 const formData = new FormData();
                 formData.append('bitacoraId', bitacoraId);
                 formData.append('ensayoRealizado', ens.ensayoRealizado);
                 formData.append('anexoFoto', ens.anexoFoto);
-
-                await api.post('/ensayos', formData, {
+                uploads.push(api.post('/ensayos', formData, {
                     headers: { 'Content-Type': 'multipart/form-data' },
-                });
+                }));
             }
+
+            await Promise.all(uploads);
 
             // 3. Sign if checked (only residents sign here; directors sign from the detail page)
             if (signed && user?.tipoUsuario === 'residente_obra') {
@@ -281,6 +281,20 @@ export default function RegistrarBitacoraPage() {
 
     return (
         <div className="max-w-5xl mx-auto animate-fadeIn px-2 sm:px-0">
+
+            {/* Loading overlay */}
+            {saving && (
+                <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center animate-fadeIn">
+                    <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4 border border-slate-200 max-w-xs w-full mx-4">
+                        <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div>
+                        <div className="text-center">
+                            <p className="text-base font-bold text-slate-800">Registrando folio...</p>
+                            <p className="text-xs text-slate-500 mt-1">Subiendo actividades y fotos</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Success message */}
             {successMsg && (
                 <div className="mb-6 flex items-center justify-between gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 px-5 py-4 rounded-xl animate-scaleIn shadow-sm">
