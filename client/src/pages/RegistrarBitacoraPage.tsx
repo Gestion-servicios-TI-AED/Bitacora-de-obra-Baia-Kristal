@@ -227,12 +227,9 @@ export default function RegistrarBitacoraPage() {
                 });
             }
 
-            // 3. Sign if checked
-            if (signed) {
+            // 3. Sign if checked (only residents sign here; directors sign from the detail page)
+            if (signed && user?.tipoUsuario === 'residente_obra') {
                 await api.patch(`/bitacoras/${bitacoraId}/firma-residente`);
-                if (user?.tipoUsuario === 'director_obra' || user?.tipoUsuario === 'director_obra_general') {
-                    await api.patch(`/bitacoras/${bitacoraId}/firma-director`);
-                }
             }
 
 
@@ -832,36 +829,15 @@ export default function RegistrarBitacoraPage() {
                             <p className="text-sm text-slate-500 mb-5">Las firmas digitales estamparán la fecha, hora e IP en el hash transaccional del sistema, asegurando la trazabilidad.</p>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                {/* Residente signature */}
-                                {user?.tipoUsuario !== 'director_obra' && user?.tipoUsuario !== 'director_obra_general' && (
-                                    <FirmaDigital
-                                        title="Firma del Residente de Obra"
-                                        user={user}
-                                        enabled={user?.tipoUsuario === 'residente_obra' || user?.tipoUsuario === 'admin'}
-                                        signed={signed}
-                                        onSign={(val) => setSigned(val)}
-                                    />
-                                )}
-                                {/* Director signature */}
-                                {(user?.tipoUsuario === 'director_obra' || user?.tipoUsuario === 'director_obra_general') && (
-                                    <FirmaDigital
-                                        title="Firma del Director de Obra"
-                                        user={user}
-                                        enabled={true}
-                                        signed={signed}
-                                        onSign={(val) => setSigned(val)}
-                                    />
-                                )}
-                                {/* Disabled boxes for other roles to show hierarchy */}
-                                {user?.tipoUsuario === 'residente_obra' && (
-                                    <>
-                                        <FirmaDigital title="Firma del Director de Obra" user={null} enabled={false} signed={false} onSign={() => { }} />
-                                        <FirmaDigital title="Firma del Interventor" user={null} enabled={false} signed={false} onSign={() => { }} />
-                                    </>
-                                )}
-                                {(user?.tipoUsuario === 'director_obra' || user?.tipoUsuario === 'director_obra_general') && (
-                                    <FirmaDigital title="Firma del Interventor" user={null} enabled={false} signed={false} onSign={() => { }} />
-                                )}
+                                <FirmaDigital
+                                    title="Firma Diligenciador"
+                                    user={user}
+                                    enabled={true}
+                                    signed={signed}
+                                    onSign={(val) => setSigned(val)}
+                                />
+                                <FirmaDigital title="Firma del Director de Obra" user={null} enabled={false} signed={false} onSign={() => { }} />
+                                <FirmaDigital title="Firma del Interventor" user={null} enabled={false} signed={false} onSign={() => { }} />
                             </div>
                         </div>
                     )}

@@ -113,8 +113,9 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         const torre = await prisma.torre.findUnique({ where: { id: torreId }, include: { proyecto: true } });
         if (!torre) { res.status(404).json({ error: 'Torre no encontrada' }); return; }
 
-        const fecha = fechaRegistro || new Date().toISOString().split('T')[0];
-        const hora = new Date().toTimeString().split(' ')[0] as string;
+        const now = new Date();
+        const fecha = fechaRegistro || now.toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+        const hora = now.toLocaleTimeString('en-GB', { timeZone: 'America/Bogota', hour12: false });
 
         // Check duplicate
         const existing = await prisma.bitacora.findUnique({
@@ -142,6 +143,11 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 
         const omitirFirmaResidente = user.tipoUsuario === 'director_obra' || user.tipoUsuario === 'director_obra_general';
 
+        const firmaResidenteData = omitirFirmaResidente
+            ? JSON.stringify({ nombre: `${user.nombre} ${user.apellido}`, email: user.email, cedula: user.cedula, cargo: user.cargo })
+            : null;
+        const firmaResidenteTimestamp = omitirFirmaResidente ? now : null;
+
         const bitacora = await prisma.bitacora.create({
             data: {
                 torreId,
@@ -155,6 +161,8 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
                 explicacionNoLaboral: diaLaborable ? null : explicacionNoLaboral,
                 creadoPorUsuarioId: user.id,
                 omitirFirmaResidente,
+                firmaResidenteData,
+                firmaResidenteTimestamp,
                 notasGenerales: notasGenerales || null,
                 ordenesImpartidas: ordenesImpartidas || null,
                 cambiosAprobados: cambiosAprobados || null,
@@ -162,7 +170,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
                 accidentesFallas: accidentesFallas || null,
                 fotoAccidenteUrl: fotoAccidenteUrl || null,
                 reclamosComunidad: reclamosComunidad || null,
-                estadoDiligencia: 'nuevo',
+                estadoDiligencia: omitirFirmaResidente ? 'pendiente_ambos' : 'nuevo',
             } as any,
             include: {
                 torre: true,
