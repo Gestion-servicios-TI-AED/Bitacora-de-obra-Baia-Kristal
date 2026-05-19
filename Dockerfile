@@ -55,7 +55,6 @@ RUN mkdir -p /data/uploads
 
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV DATABASE_URL=file:/data/production.db
 ENV UPLOAD_DIR=/data/uploads
 
 EXPOSE 3000
