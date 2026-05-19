@@ -17,7 +17,7 @@ model Proyecto {
   logoUrl   String?
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now()) @updatedAt
   empresaContratanteId   String?
   empresaInterventoriaId String?
 
@@ -129,7 +129,7 @@ model Bitacora {
   fotoAccidenteUrl      String?
   reclamosComunidad     String?
   createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  updatedAt             DateTime @default(now()) @updatedAt
 
   torre      Torre    @relation(fields: [torreId], references: [id])
   proyecto   Proyecto @relation(fields: [proyectoId], references: [id])
@@ -200,7 +200,7 @@ model EmpresaInterventoria {
   tipo      String    @default("interventoria") // interventoria | supervision_tecnica
   activo    Boolean   @default(true)
   createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  updatedAt DateTime  @default(now()) @updatedAt
 
   usuarios  Usuario[]
   proyectos Proyecto[] @relation("ProyectoInterventoria")
@@ -212,7 +212,7 @@ model EmpresaContratante {
   nit       String?
   activo    Boolean    @default(true)
   createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  updatedAt DateTime   @default(now()) @updatedAt
 
   proyectos Proyecto[]
 }
