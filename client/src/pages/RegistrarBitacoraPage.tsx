@@ -430,6 +430,7 @@ export default function RegistrarBitacoraPage() {
                         </div>
                     </div>
 
+                    {estadoObra && (<>
                     {/* Día laborable */}
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 mb-6 animate-fadeIn">
                         <label className="flex items-center gap-2 text-[15px] font-semibold text-slate-800 mb-4">
@@ -897,6 +898,7 @@ export default function RegistrarBitacoraPage() {
                             </button>
                         </div>
                     )}
+                    </>)}
                 </>
             )}
 
