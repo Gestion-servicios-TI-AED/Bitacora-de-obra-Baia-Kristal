@@ -165,7 +165,7 @@ export default function RegistrarBitacoraPage() {
             // 1. Create bitacora
             const bitRes = await api.post('/bitacoras', {
                 torreId,
-                estadoObra: diaLaborable ? estadoObra : null,
+                estadoObra: estadoObra || null,
                 diaLaborable,
                 razonNoLaboral: diaLaborable ? null : razonNoLaboral,
                 explicacionNoLaboral: diaLaborable ? null : explicacionNoLaboral,
@@ -262,9 +262,9 @@ export default function RegistrarBitacoraPage() {
         setActividades(actividades.filter((_, i) => i !== index));
     };
 
-    const canSave = torreId && !torreBlocked && signed && notasGeneralesBitacora.trim() && (
+    const canSave = torreId && !torreBlocked && signed && notasGeneralesBitacora.trim() && estadoObra && (
         (!diaLaborable && razonNoLaboral && explicacionNoLaboral) ||
-        (diaLaborable && estadoObra && actividades.length > 0)
+        (diaLaborable && actividades.length > 0)
     );
 
     if (user?.tipoUsuario === 'interventoria' || user?.tipoUsuario === 'supervisor_tecnico') {
@@ -408,7 +408,7 @@ export default function RegistrarBitacoraPage() {
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 mb-6 animate-fadeIn">
                         <label className="flex items-center gap-2 text-[15px] font-semibold text-slate-800 mb-4">
                             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs shrink-0">2</span>
-                            Condición General de la Obra
+                            Condición General de la Obra <span className="text-rose-500 ml-0.5">*</span>
                         </label>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             {estadoObraOptions.map((opt) => {
@@ -448,7 +448,7 @@ export default function RegistrarBitacoraPage() {
                                 SÍ, JORNADA ACTIVA
                             </button>
                             <button
-                                onClick={() => { setDiaLaborable(false); setEstadoObra(''); setActividades([]); }}
+                                onClick={() => { setDiaLaborable(false); setActividades([]); }}
                                 className={`flex items-center justify-center gap-3 py-4 rounded-xl border-2 text-[15px] font-bold transition-all duration-200 ${diaLaborable === false
                                     ? 'border-rose-500 bg-rose-50 text-rose-700 shadow-md shadow-rose-100'
                                     : 'border-slate-200 text-slate-500 hover:border-rose-300 hover:bg-rose-50/50'
