@@ -61,7 +61,7 @@ export default function FirmaDigital({ title, user, enabled, signed, onSign, fir
             </div>
 
             {existingFirma ? (
-                <FirmaInfo data={existingFirma} timestamp={firmaTimestamp} />
+                <FirmaInfo data={existingFirma} {...(firmaTimestamp !== undefined && { timestamp: firmaTimestamp })} />
             ) : enabled ? (
                 <div>
                     <label className="flex items-start gap-3 cursor-pointer group">
