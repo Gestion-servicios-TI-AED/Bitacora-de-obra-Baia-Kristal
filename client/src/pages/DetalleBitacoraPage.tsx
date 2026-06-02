@@ -231,7 +231,7 @@ export default function DetalleBitacoraPage() {
         .map((ut: any) => ut.usuario);
 
     return (
-        <div className="max-w-5xl mx-auto animate-fadeIn px-2 sm:px-0 pb-10">
+        <div className="max-w-6xl mx-auto animate-fadeIn px-2 sm:px-0 pb-10">
             {/* Lightbox */}
             {lightboxImg && (
                 <div
@@ -396,7 +396,7 @@ export default function DetalleBitacoraPage() {
                                 <span className="font-semibold text-slate-700 text-xs">
                                     {bitacora.firmaInterventorData
                                         ? (JSON.parse(bitacora.firmaInterventorData)?.empresa || interventorAsignado?.empresaInterventoria?.nombre || 'No especificada')
-                                        : (bitacora.proyecto?.empresaInterventoria?.nombre || interventorAsignado?.empresaInterventoria?.nombre || 'No asignada')}
+                                        : (bitacora.torre?.empresaInterventoria?.nombre || interventorAsignado?.empresaInterventoria?.nombre || 'No asignada')}
                                 </span>
                             </div>
                         </div>

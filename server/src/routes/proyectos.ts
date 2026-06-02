@@ -15,12 +15,11 @@ const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 // GET /api/proyectos
 router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     try {
-        const proyectos = await (prisma.proyecto as any).findMany({
+        const proyectos = await prisma.proyecto.findMany({
             include: {
                 torres: true,
                 _count: { select: { torres: true, contratistas: true } },
                 empresaContratante: true,
-                empresaInterventoria: true,
             },
             orderBy: { nombre: 'asc' },
         });
@@ -34,9 +33,9 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 // GET /api/proyectos/:id
 router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
     try {
-        const proyecto = await (prisma.proyecto as any).findUnique({
+        const proyecto = await prisma.proyecto.findUnique({
             where: { id: req.params.id as string },
-            include: { torres: true, contratistas: true, empresaContratante: true, empresaInterventoria: true },
+            include: { torres: true, contratistas: true, empresaContratante: true },
         });
         if (!proyecto) { res.status(404).json({ error: 'Proyecto no encontrado' }); return; }
         res.json(proyecto);
@@ -63,7 +62,7 @@ router.post('/', authenticateToken, requireRole('admin'), upload.single('logo'),
 router.put('/:id', authenticateToken, requireRole('admin'), upload.single('logo'), async (req: AuthRequest, res: Response) => {
     try {
         console.log('PUT /api/proyectos body:', req.body);
-        const { nombre, direccion, ciudad, activo, abreviatura, empresaContratanteId, empresaInterventoriaId } = req.body;
+        const { nombre, direccion, ciudad, activo, abreviatura, empresaContratanteId } = req.body;
         const data: any = {};
         if (nombre !== undefined) data.nombre = nombre;
         if (direccion !== undefined) data.direccion = direccion;
@@ -79,16 +78,8 @@ router.put('/:id', authenticateToken, requireRole('admin'), upload.single('logo'
             }
         }
 
-        if (empresaInterventoriaId !== undefined) {
-            if (empresaInterventoriaId && empresaInterventoriaId !== '' && empresaInterventoriaId !== 'null') {
-                data.empresaInterventoria = { connect: { id: empresaInterventoriaId } };
-            } else {
-                data.empresaInterventoria = { disconnect: true };
-            }
-        }
-
         if (req.file) data.logoUrl = `/uploads/${req.file.filename}`;
-        const proyecto = await (prisma.proyecto as any).update({ where: { id: req.params.id as string }, data });
+        const proyecto = await prisma.proyecto.update({ where: { id: req.params.id as string }, data });
         res.json(proyecto);
     } catch (error) {
         console.error(error);

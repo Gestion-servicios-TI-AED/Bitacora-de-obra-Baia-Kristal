@@ -68,6 +68,7 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
             include: {
                 torre: {
                     include: {
+                        empresaInterventoria: true,
                         usuarioTorres: {
                             include: {
                                 usuario: {
@@ -82,8 +83,7 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
                 proyecto: {
                     include: {
                         empresaContratante: true,
-                        empresaInterventoria: true,
-                    } as any,
+                    },
                 },
                 creadoPor: { select: { id: true, nombre: true, apellido: true, cargo: true, email: true, cedula: true, tipoUsuario: true } },
                 actividades: { include: { contratista: true }, orderBy: { createdAt: 'asc' } },
@@ -330,14 +330,24 @@ router.patch('/:id/firma-interventor', authenticateToken, async (req: AuthReques
             return;
         }
 
-        // Check torre assignment (skip for admin owner)
         if (!isAdminOwner) {
-            const assigned = await prisma.usuarioTorre.findUnique({
-                where: { usuarioId_torreId: { usuarioId: user.id, torreId: bitacora.torreId } },
-            });
-            if (!assigned) {
-                res.status(403).json({ error: 'No está asignado a esta torre' });
-                return;
+            const torre = await prisma.torre.findUnique({ where: { id: bitacora.torreId } });
+
+            // If the frente has a specific responsible assigned, only that person can sign
+            if (torre?.interventorResponsableId) {
+                if (user.id !== torre.interventorResponsableId) {
+                    res.status(403).json({ error: 'Solo la persona responsable asignada a este frente puede firmar el aval de supervisión' });
+                    return;
+                }
+            } else {
+                // No specific person assigned: fall back to torre assignment check
+                const assigned = await prisma.usuarioTorre.findUnique({
+                    where: { usuarioId_torreId: { usuarioId: user.id, torreId: bitacora.torreId } },
+                });
+                if (!assigned) {
+                    res.status(403).json({ error: 'No está asignado a esta torre' });
+                    return;
+                }
             }
         }
 

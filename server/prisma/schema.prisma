@@ -19,14 +19,12 @@ model Proyecto {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
   empresaContratanteId   String?
-  empresaInterventoriaId String?
 
   torres               Torre[]
   contratistas         Contratista[]
   usuarioProyectos     UsuarioProyecto[]
   bitacoras            Bitacora[]
   empresaContratante   EmpresaContratante?   @relation(fields: [empresaContratanteId], references: [id])
-  empresaInterventoria EmpresaInterventoria? @relation("ProyectoInterventoria", fields: [empresaInterventoriaId], references: [id])
 }
 
 model Torre {
@@ -36,14 +34,18 @@ model Torre {
   abreviatura         String?
   etapaConstructiva   String?
   frente              String?
-  folioActual         Int      @default(0)
-  activo              Boolean  @default(true)
-  createdAt           DateTime @default(now())
+  folioActual              Int      @default(0)
+  activo                   Boolean  @default(true)
+  createdAt                DateTime @default(now())
+  empresaInterventoriaId   String?
+  interventorResponsableId String?
 
-  proyecto       Proyecto        @relation(fields: [proyectoId], references: [id])
-  usuarioTorres  UsuarioTorre[]
-  bitacoras      Bitacora[]
-  folioControles FolioControl[]
+  proyecto               Proyecto              @relation(fields: [proyectoId], references: [id])
+  usuarioTorres          UsuarioTorre[]
+  bitacoras              Bitacora[]
+  folioControles         FolioControl[]
+  empresaInterventoria   EmpresaInterventoria? @relation("TorreInterventoria", fields: [empresaInterventoriaId], references: [id], onDelete: SetNull)
+  interventorResponsable Usuario?              @relation("TorreInterventorResponsable", fields: [interventorResponsableId], references: [id], onDelete: SetNull)
 }
 
 model Usuario {
@@ -61,8 +63,9 @@ model Usuario {
 
   usuarioProyectos     UsuarioProyecto[]
   usuarioTorres        UsuarioTorre[]
-  bitacorasCreadas     Bitacora[]            @relation("BitacoraCreador")
-  empresaInterventoria EmpresaInterventoria? @relation(fields: [empresaInterventoriaId], references: [id])
+  bitacorasCreadas         Bitacora[]            @relation("BitacoraCreador")
+  torreInterventorAsignado Torre[]               @relation("TorreInterventorResponsable")
+  empresaInterventoria     EmpresaInterventoria? @relation(fields: [empresaInterventoriaId], references: [id])
 }
 
 model UsuarioProyecto {
@@ -203,7 +206,7 @@ model EmpresaInterventoria {
   updatedAt DateTime  @default(now()) @updatedAt
 
   usuarios  Usuario[]
-  proyectos Proyecto[] @relation("ProyectoInterventoria")
+  torres    Torre[]    @relation("TorreInterventoria")
 }
 
 model EmpresaContratante {

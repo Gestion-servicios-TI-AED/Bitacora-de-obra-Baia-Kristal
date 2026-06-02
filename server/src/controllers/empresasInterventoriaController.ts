@@ -61,22 +61,19 @@ export const deleteEmpresaInterventoria = async (req: Request, res: Response) =>
   try {
     const id = req.params['id'] as string;
 
-    // Optional: Check if there are users associated with this company before deleting
-    const usersCount = await prisma.usuario.count({
-      where: { empresaInterventoriaId: id },
-    });
-
+    const usersCount = await prisma.usuario.count({ where: { empresaInterventoriaId: id } });
     if (usersCount > 0) {
-      res.status(400).json({
-        message: 'No se puede eliminar la empresa porque tiene usuarios asociados. Inactívela en su lugar.'
-      });
+      res.status(400).json({ message: 'No se puede eliminar la empresa porque tiene usuarios asociados. Inactívela en su lugar.' });
       return;
     }
 
-    await prisma.empresaInterventoria.delete({
-      where: { id },
-    });
+    const torresCount = await prisma.torre.count({ where: { empresaInterventoriaId: id } });
+    if (torresCount > 0) {
+      res.status(400).json({ message: 'No se puede eliminar la empresa porque tiene frentes asociados. Inactívela en su lugar.' });
+      return;
+    }
 
+    await prisma.empresaInterventoria.delete({ where: { id } });
     res.status(204).send();
   } catch (error) {
     console.error('Error deleting empresa interventoria:', error);

@@ -208,17 +208,11 @@ function ProyectoEditForm({ proyectoId, showToast, queryClient }: { proyectoId: 
         queryFn: async () => (await api.get('/empresas-contratantes')).data,
     });
 
-    const { data: interventoras = [] } = useQuery({
-        queryKey: ['interventoras'],
-        queryFn: async () => (await api.get('/empresas-interventoria')).data,
-    });
-
     const [nombre, setNombre] = useState('');
     const [abreviatura, setAbreviatura] = useState('');
     const [ciudad, setCiudad] = useState('');
     const [direccion, setDireccion] = useState('');
     const [empresaContratanteId, setEmpresaContratanteId] = useState('');
-    const [empresaInterventoriaId, setEmpresaInterventoriaId] = useState('');
     const [hydrated, setHydrated] = useState(false);
 
     // Populate form once project loads
@@ -228,13 +222,12 @@ function ProyectoEditForm({ proyectoId, showToast, queryClient }: { proyectoId: 
         setCiudad(proyecto.ciudad || '');
         setDireccion(proyecto.direccion || '');
         setEmpresaContratanteId(proyecto.empresaContratanteId || '');
-        setEmpresaInterventoriaId(proyecto.empresaInterventoriaId || '');
         setHydrated(true);
     }
 
     const saveMutation = useMutation({
         mutationFn: async () => (await api.put(`/proyectos/${proyectoId}`, {
-            nombre, abreviatura, ciudad, direccion, empresaContratanteId, empresaInterventoriaId,
+            nombre, abreviatura, ciudad, direccion, empresaContratanteId,
         })).data,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['proyecto', proyectoId] });
@@ -245,11 +238,6 @@ function ProyectoEditForm({ proyectoId, showToast, queryClient }: { proyectoId: 
     });
 
     if (isLoading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin" /></div>;
-
-    const tipoInterventora = (id: string) => {
-        const emp = interventoras.find((e: any) => e.id === id);
-        return emp?.tipo === 'supervision_tecnica' ? 'Supervisión Técnica Independiente' : 'Interventoría';
-    };
 
     return (
         <div className="p-4 sm:p-0">
@@ -293,19 +281,6 @@ function ProyectoEditForm({ proyectoId, showToast, queryClient }: { proyectoId: 
                         </p>
                     )}
                 </div>
-                <div>
-                    <label className={labelClasses}>Empresa de Supervisión Técnica</label>
-                    <select value={empresaInterventoriaId} onChange={(e) => setEmpresaInterventoriaId(e.target.value)} className={selectClasses}>
-                        <option value="">Sin empresa de supervisión</option>
-                        {interventoras.map((e: any) => <option key={e.id} value={e.id}>{e.nombre} — {e.tipo === 'supervision_tecnica' ? 'Sup. Técnica' : 'Interventoría'}</option>)}
-                    </select>
-                    {empresaInterventoriaId && (
-                        <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                            {interventoras.find((e: any) => e.id === empresaInterventoriaId)?.nombre} · {tipoInterventora(empresaInterventoriaId)}
-                        </p>
-                    )}
-                </div>
             </div>
 
             {/* Preview card — shows what the acta will display */}
@@ -323,10 +298,6 @@ function ProyectoEditForm({ proyectoId, showToast, queryClient }: { proyectoId: 
                     <div className="flex flex-col gap-0.5">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Empresa Contratante</span>
                         <span className="font-semibold text-slate-800">{contratantes.find((c: any) => c.id === empresaContratanteId)?.nombre || <span className="text-slate-300 italic">No asignada</span>}</span>
-                    </div>
-                    <div className="flex flex-col gap-0.5">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Empresa de Supervisión Técnica</span>
-                        <span className="font-semibold text-slate-800">{interventoras.find((e: any) => e.id === empresaInterventoriaId)?.nombre || <span className="text-slate-300 italic">No asignada</span>}</span>
                     </div>
                 </div>
             </div>
@@ -353,6 +324,8 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
     const [proyectoId, setProyectoId] = useState('');
     const [folioInicial, setFolioInicial] = useState(1);
     const [filterProyectoId, setFilterProyectoId] = useState('');
+    const [empresaInterventoriaId, setEmpresaInterventoriaId] = useState('');
+    const [interventorResponsableId, setInterventorResponsableId] = useState('');
     const { selectedProjectId } = useProjectStore();
 
     const effectiveFilterProyectoId = SINGLE_PROJECT_MODE ? (selectedProjectId || '') : filterProyectoId;
@@ -368,12 +341,36 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
             return (await api.get(`/torres${p}`)).data;
         },
     });
+    const { data: interventoras = [] } = useQuery({
+        queryKey: ['interventoras'],
+        queryFn: async () => (await api.get('/empresas-interventoria')).data,
+    });
+    const { data: allUsuarios = [] } = useQuery({
+        queryKey: ['usuarios'],
+        queryFn: async () => (await api.get('/usuarios')).data,
+    });
 
     const selectedProyecto = proyectos.find((p: any) => p.id === (SINGLE_PROJECT_MODE ? selectedProjectId : proyectoId));
+    const efectiveProyectoId = SINGLE_PROJECT_MODE ? (selectedProjectId || '') : proyectoId;
+    const usuariosDelProyecto = efectiveProyectoId
+        ? allUsuarios.filter((u: any) =>
+            u.usuarioProyectos?.some((up: any) => (up.proyectoId || up.proyecto?.id) === efectiveProyectoId)
+          )
+        : [];
+    const ROLES_INTERVENTORIA = ['interventoria', 'director_obra_general', 'supervisor_tecnico'];
+    const interventoresDisponibles = usuariosDelProyecto.filter((u: any) =>
+        ROLES_INTERVENTORIA.includes(u.tipoUsuario) &&
+        (!empresaInterventoriaId || u.empresaInterventoriaId === empresaInterventoriaId)
+    );
 
     const save = useMutation({
         mutationFn: async () => {
-            const payload = { nombre: nombreGenerado, abreviatura, etapaConstructiva, frente, folioActual: folioInicial - 1 };
+            const payload = {
+                nombre: nombreGenerado, abreviatura, etapaConstructiva, frente,
+                folioActual: folioInicial - 1,
+                empresaInterventoriaId: empresaInterventoriaId || null,
+                interventorResponsableId: interventorResponsableId || null,
+            };
             if (editId) return (await api.put(`/torres/${editId}`, payload)).data;
             return (await api.post('/torres', { ...payload, proyectoId })).data;
         },
@@ -397,11 +394,15 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
     const resetForm = () => {
         setShowForm(false); setEditId(null); setAbreviatura('');
         setEtapaConstructiva(''); setFrente(''); setProyectoId(''); setFolioInicial(1);
+        setEmpresaInterventoriaId(''); setInterventorResponsableId('');
     };
     const startEdit = (t: any) => {
         setEditId(t.id); setAbreviatura(t.abreviatura || '');
         setEtapaConstructiva(t.etapaConstructiva || ''); setFrente(t.frente || '');
-        setProyectoId(t.proyectoId); setFolioInicial((t.folioActual || 0) + 1); setShowForm(true);
+        setProyectoId(t.proyectoId); setFolioInicial((t.folioActual || 0) + 1);
+        setEmpresaInterventoriaId(t.empresaInterventoriaId || '');
+        setInterventorResponsableId(t.interventorResponsableId || '');
+        setShowForm(true);
     };
     const handleNew = () => {
         resetForm();
@@ -462,6 +463,44 @@ function TorresTab({ showToast }: { showToast: (m: string) => void }) {
                             <label className={labelClasses}>Primer folio digital</label>
                             <input type="number" min={1} value={folioInicial} onChange={(e) => setFolioInicial(Math.max(1, parseInt(e.target.value) || 1))} className={inputClasses} placeholder="1" />
                             <p className="text-xs text-slate-400 mt-1">Si ya existen bitácoras en papel, ingresa el número desde el que debe continuar la numeración.</p>
+                        </div>
+                        <div>
+                            <label className={labelClasses}>Empresa de Supervisión / Interventoría</label>
+                            <select
+                                value={empresaInterventoriaId}
+                                onChange={(e) => { setEmpresaInterventoriaId(e.target.value); setInterventorResponsableId(''); }}
+                                className={selectClasses}
+                            >
+                                <option value="">Sin empresa asignada</option>
+                                {interventoras.map((emp: any) => (
+                                    <option key={emp.id} value={emp.id}>
+                                        {emp.nombre} — {emp.tipo === 'supervision_tecnica' ? 'Sup. Técnica' : 'Interventoría'}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className={labelClasses}>Persona Responsable</label>
+                            <select
+                                value={interventorResponsableId}
+                                onChange={(e) => setInterventorResponsableId(e.target.value)}
+                                className={selectClasses}
+                                disabled={!empresaInterventoriaId}
+                            >
+                                <option value="">
+                                    {empresaInterventoriaId ? 'Seleccionar persona...' : 'Seleccione primero una empresa'}
+                                </option>
+                                {interventoresDisponibles.map((u: any) => (
+                                    <option key={u.id} value={u.id}>
+                                        {u.nombre} {u.apellido} — {u.cargo}
+                                    </option>
+                                ))}
+                            </select>
+                            {empresaInterventoriaId && interventoresDisponibles.length === 0 && (
+                                <p className="text-xs text-amber-600 mt-1">
+                                    No hay usuarios del proyecto asignados a esta empresa.
+                                </p>
+                            )}
                         </div>
                     </div>
                     <div className="flex gap-3 justify-end pt-2 border-t border-slate-200/60">
@@ -1055,7 +1094,6 @@ function FestivosTab({ showToast }: { showToast: (m: string) => void }) {
 // ── INTERVENTORAS TAB ──
 function InterventorasTab({ showToast }: { showToast: (m: string) => void }) {
     const queryClient = useQueryClient();
-    const { selectedProjectId } = useProjectStore();
     const [showForm, setShowForm] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
     const [nombre, setNombre] = useState('');
@@ -1065,12 +1103,6 @@ function InterventorasTab({ showToast }: { showToast: (m: string) => void }) {
     const { data: interventoras = [] } = useQuery({
         queryKey: ['interventoras'],
         queryFn: async () => (await api.get('/empresas-interventoria')).data,
-    });
-
-    const { data: proyecto } = useQuery({
-        queryKey: ['proyecto', selectedProjectId],
-        queryFn: async () => (await api.get(`/proyectos/${selectedProjectId}`)).data,
-        enabled: !!selectedProjectId && SINGLE_PROJECT_MODE,
     });
 
     const saveMutation = useMutation({
@@ -1093,16 +1125,6 @@ function InterventorasTab({ showToast }: { showToast: (m: string) => void }) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['interventoras'] });
-        },
-    });
-
-    const proyectoEmpresaMutation = useMutation({
-        mutationFn: async (empresaInterventoriaId: string) => {
-            return (await api.put(`/proyectos/${selectedProjectId}`, { empresaInterventoriaId })).data;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['proyecto', selectedProjectId] });
-            showToast('Empresa de supervisión actualizada para el proyecto');
         },
     });
 
@@ -1204,36 +1226,6 @@ function InterventorasTab({ showToast }: { showToast: (m: string) => void }) {
                 </div>
             </div>
 
-            {/* Project-level empresa de supervisión selector (only in SINGLE_PROJECT_MODE) */}
-            {SINGLE_PROJECT_MODE && selectedProjectId && (
-                <div className="border border-primary/20 rounded-2xl p-5 bg-primary/5 shadow-sm">
-                    <h3 className="text-sm font-semibold text-slate-800 mb-1 flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-primary" />
-                        Empresa de Supervisión activa para el proyecto
-                    </h3>
-                    <p className="text-xs text-slate-500 mb-4">Esta empresa aparecerá en las actas de bitácora como empresa de supervisión técnica.</p>
-                    <div className="flex flex-col sm:flex-row gap-3 items-end">
-                        <div className="flex-1">
-                            <select
-                                defaultValue={proyecto?.empresaInterventoriaId || ''}
-                                key={proyecto?.empresaInterventoriaId}
-                                onChange={(e) => proyectoEmpresaMutation.mutate(e.target.value)}
-                                className={selectClasses}
-                            >
-                                <option value="">Sin empresa asignada</option>
-                                {interventoras.map((emp: any) => (
-                                    <option key={emp.id} value={emp.id}>{emp.nombre} — {tipoLabel(emp.tipo)}</option>
-                                ))}
-                            </select>
-                        </div>
-                        {proyecto?.empresaInterventoria && (
-                            <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1 bg-emerald-50 px-2 py-1.5 rounded-lg border border-emerald-200 shrink-0">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Activa: {proyecto.empresaInterventoria.nombre}
-                            </span>
-                        )}
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

@@ -262,9 +262,9 @@ export default function RegistrarBitacoraPage() {
         setActividades(actividades.filter((_, i) => i !== index));
     };
 
-    const canSave = torreId && !torreBlocked && signed && notasGeneralesBitacora.trim() && estadoObra && (
-        (!diaLaborable && razonNoLaboral && explicacionNoLaboral) ||
-        (diaLaborable && actividades.length > 0)
+    const canSave = torreId && !torreBlocked && signed && estadoObra && (
+        (diaLaborable === false && razonNoLaboral && explicacionNoLaboral) ||
+        (diaLaborable === true && notasGeneralesBitacora.trim() && actividades.length > 0)
     );
 
     if (user?.tipoUsuario === 'interventoria' || user?.tipoUsuario === 'supervisor_tecnico') {
@@ -280,7 +280,7 @@ export default function RegistrarBitacoraPage() {
     }
 
     return (
-        <div className="max-w-5xl mx-auto animate-fadeIn px-2 sm:px-0">
+        <div className="max-w-6xl mx-auto animate-fadeIn px-2 sm:px-0">
 
             {/* Loading overlay */}
             {saving && (
@@ -819,7 +819,7 @@ export default function RegistrarBitacoraPage() {
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 mb-6 animate-fadeIn">
                             <div className="mb-3 flex items-center justify-between">
                                 <label className="text-[15px] font-semibold text-slate-800">Notas Generales y Directrices</label>
-                                <span className="text-xs font-bold text-rose-500 bg-rose-50 px-2 py-1 rounded ring-1 ring-inset ring-rose-200">Requerido</span>
+                                {diaLaborable === true && <span className="text-xs font-bold text-rose-500 bg-rose-50 px-2 py-1 rounded ring-1 ring-inset ring-rose-200">Requerido</span>}
                             </div>
                             <textarea
                                 value={notasGeneralesBitacora}
@@ -828,7 +828,7 @@ export default function RegistrarBitacoraPage() {
                                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none placeholder-slate-400"
                                 placeholder="Escriba aquí los comentarios globales del día, decisiones de comité, material recibido de importancia, entre otras novedades de la obra que no estén asociadas a una actividad."
                             />
-                            {!notasGeneralesBitacora.trim() && (
+                            {diaLaborable === true && !notasGeneralesBitacora.trim() && (
                                 <p className="text-xs text-rose-500 mt-1.5 font-medium flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> El folio requiere poseer comentarios globales de la residencia.</p>
                             )}
                         </div>
@@ -852,7 +852,7 @@ export default function RegistrarBitacoraPage() {
                                     onSign={(val) => setSigned(val)}
                                 />
                                 <FirmaDigital title="Firma del Director de Obra" user={null} enabled={false} signed={false} onSign={() => { }} />
-                                <FirmaDigital title="Firma del Interventor" user={null} enabled={false} signed={false} onSign={() => { }} />
+                                <FirmaDigital title="Firma del Supervisor" user={null} enabled={false} signed={false} onSign={() => { }} />
                             </div>
                         </div>
                     )}
