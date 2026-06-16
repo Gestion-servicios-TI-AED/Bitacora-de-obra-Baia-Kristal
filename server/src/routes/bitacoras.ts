@@ -106,7 +106,8 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
             torreId, estadoObra, diaLaborable, razonNoLaboral, explicacionNoLaboral,
             fechaRegistro, notasGenerales,
             ordenesImpartidas, cambiosAprobados, coordinacionesTecnicas,
-            accidentesFallas, fotoAccidenteUrl, reclamosComunidad
+            accidentesFallas, fotoAccidenteUrl, reclamosComunidad,
+            firmarComoResidente
         } = req.body;
 
         // Get torre to find project
@@ -143,10 +144,20 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 
         const omitirFirmaResidente = user.tipoUsuario === 'director_obra' || user.tipoUsuario === 'director_obra_general';
 
-        const firmaResidenteData = omitirFirmaResidente
+        // El residente firma DENTRO de esta misma petición de creación. Antes la firma
+        // se aplicaba en un PATCH posterior; si la señal en obra se caía entre el create y
+        // ese PATCH, la bitácora quedaba registrada sin firma. Al firmar inline, la
+        // bitácora solo puede crearse ya firmada (atómico): o nace firmada, o no nace.
+        const firmaResidenteInline = !omitirFirmaResidente
+            && firmarComoResidente === true
+            && user.tipoUsuario === 'residente_obra';
+
+        const tieneFirmaResidente = omitirFirmaResidente || firmaResidenteInline;
+
+        const firmaResidenteData = tieneFirmaResidente
             ? JSON.stringify({ nombre: `${user.nombre} ${user.apellido}`, email: user.email, cedula: user.cedula, cargo: user.cargo })
             : null;
-        const firmaResidenteTimestamp = omitirFirmaResidente ? now : null;
+        const firmaResidenteTimestamp = tieneFirmaResidente ? now : null;
 
         const bitacora = await prisma.bitacora.create({
             data: {
@@ -170,7 +181,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
                 accidentesFallas: accidentesFallas || null,
                 fotoAccidenteUrl: fotoAccidenteUrl || null,
                 reclamosComunidad: reclamosComunidad || null,
-                estadoDiligencia: omitirFirmaResidente ? 'pendiente_ambos' : 'nuevo',
+                estadoDiligencia: tieneFirmaResidente ? 'pendiente_ambos' : 'nuevo',
             } as any,
             include: {
                 torre: true,

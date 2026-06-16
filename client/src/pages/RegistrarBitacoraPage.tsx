@@ -176,6 +176,11 @@ export default function RegistrarBitacoraPage() {
                 coordinacionesTecnicas,
                 accidentesFallas,
                 reclamosComunidad,
+                // La firma del residente viaja en la MISMA petición que crea la bitácora.
+                // Así, si se cae la señal en obra, la bitácora nunca queda registrada sin
+                // firma: o se crea ya firmada, o no se crea. (Antes la firma iba en un
+                // PATCH posterior que podía perderse tras crearse la bitácora.)
+                firmarComoResidente: signed && user?.tipoUsuario === 'residente_obra',
             });
             const bitacoraId = bitRes.data.id;
 
@@ -226,12 +231,6 @@ export default function RegistrarBitacoraPage() {
             }
 
             await Promise.all(uploads);
-
-            // 3. Sign if checked (only residents sign here; directors sign from the detail page)
-            if (signed && user?.tipoUsuario === 'residente_obra') {
-                await api.patch(`/bitacoras/${bitacoraId}/firma-residente`);
-            }
-
 
             // Clear draft on successful save
             localStorage.removeItem(getDraftKey(torreId, targetDate));
