@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useProjectStore } from '../stores/projectStore';
 import api from '../lib/api';
 import ActividadModal from '../components/ActividadModal';
 import FirmaDigital from '../components/FirmaDigital';
+import { compressImage } from '../lib/imageCompression';
 import {
     AlertTriangle, CheckCircle2, XCircle,
     Plus, Trash2, Edit, Calendar, Hash, ClipboardList, PenTool, Shield,
@@ -27,6 +28,7 @@ const climaIcons: Record<string, string> = {
 export default function RegistrarBitacoraPage() {
     const { user } = useAuthStore();
     const { selectedProjectId } = useProjectStore();
+    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const fechaParam = searchParams.get('fecha');
     const isRetroactive = !!fechaParam;
@@ -42,7 +44,6 @@ export default function RegistrarBitacoraPage() {
     const [folio, setFolio] = useState<number | null>(null);
     const [signed, setSigned] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [successMsg, setSuccessMsg] = useState('');
     const [notasGeneralesBitacora, setNotasGeneralesBitacora] = useState('');
     
     // New fields
@@ -176,15 +177,15 @@ export default function RegistrarBitacoraPage() {
                 coordinacionesTecnicas,
                 accidentesFallas,
                 reclamosComunidad,
-                // La firma del residente viaja en la MISMA petición que crea la bitácora.
-                // Así, si se cae la señal en obra, la bitácora nunca queda registrada sin
-                // firma: o se crea ya firmada, o no se crea. (Antes la firma iba en un
-                // PATCH posterior que podía perderse tras crearse la bitácora.)
-                firmarComoResidente: signed && user?.tipoUsuario === 'residente_obra',
+                // La firma del diligenciador se estampa en el servidor con los datos de quien
+                // crea la bitácora, dentro de esta misma petición (nunca queda en null).
             });
             const bitacoraId = bitRes.data.id;
 
-            // 2. Upload actividades, ensayos y foto de incidente en paralelo
+            // 2. Subir actividades, ensayos y foto de incidente en paralelo.
+            // Si algo falla aquí (típicamente por señal débil en obra), revertimos la
+            // bitácora recién creada para liberar el folio y permitir reintentar el mismo día.
+            try {
             const uploads: Promise<any>[] = [];
 
             if (fotoAccidente) {
@@ -231,26 +232,30 @@ export default function RegistrarBitacoraPage() {
             }
 
             await Promise.all(uploads);
+            } catch (uploadErr) {
+                // Revertir la bitácora huérfana (mejor esfuerzo). Si la reversión también
+                // falla por la red, un admin podrá eliminarla manualmente después.
+                try {
+                    await api.delete(`/bitacoras/${bitacoraId}/creacion-fallida`);
+                } catch { /* sin acción: se reporta el error de subida abajo */ }
+                throw uploadErr;
+            }
 
-            // Clear draft on successful save
+            // Guardado exitoso: limpiar el borrador y llevar al listado de folios.
+            // NO apagamos `saving`: así el overlay "Registrando folio..." permanece visible
+            // hasta que termina toda la subida y la navegación desmonta esta pantalla, sin
+            // que el formulario reaparezca ni el overlay parpadee.
             localStorage.removeItem(getDraftKey(torreId, targetDate));
-            setDraftSavedAt(null);
-
-            setSuccessMsg('¡Bitácora registrada exitosamente al folio correspondiente!');
-            // Reset form
-            setTimeout(() => {
-                setTorreId(''); setEstadoObra(''); setDiaLaborable(null);
-                setRazonNoLaboral(''); setExplicacionNoLaboral('');
-                setActividades([]); setSigned(false);
-                setSuccessMsg(''); setNotasGeneralesBitacora('');
-                setOrdenesImpartidas(''); setCambiosAprobados(''); setCoordinacionesTecnicas('');
-                setAccidentesFallas(''); setFotoAccidente(null); setReclamosComunidad('');
-                setEnsayos([]);
-            }, 4000);
+            navigate('/bitacoras');
         } catch (err: any) {
-            alert(err.response?.data?.error || 'Error al guardar');
-        } finally {
+            // Solo en error reactivamos la pantalla y avisamos. Si el servidor respondió con
+            // un mensaje, se muestra; si no hubo respuesta (corte de red en obra), explicamos
+            // que no se guardó nada y que puede reintentar.
             setSaving(false);
+            alert(
+                err.response?.data?.error
+                || 'No se pudo guardar la bitácora, posiblemente por la conexión. No se registró nada; revise su señal e intente de nuevo (los datos del formulario se conservan).'
+            );
         }
     };
 
@@ -290,16 +295,6 @@ export default function RegistrarBitacoraPage() {
                             <p className="text-base font-bold text-slate-800">Registrando folio...</p>
                             <p className="text-xs text-slate-500 mt-1">Subiendo actividades y fotos</p>
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Success message */}
-            {successMsg && (
-                <div className="mb-6 flex items-center justify-between gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 px-5 py-4 rounded-xl animate-scaleIn shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                        <span className="font-medium text-sm">{successMsg}</span>
                     </div>
                 </div>
             )}
@@ -723,7 +718,10 @@ export default function RegistrarBitacoraPage() {
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-1.5">Soporte (Opcional)</label>
                                         <label className={`flex flex-col items-center justify-center p-4 h-[108px] bg-slate-50 border-2 border-dashed rounded-xl cursor-pointer hover:bg-slate-100 transition-all ${fotoAccidente ? 'border-emerald-400 bg-emerald-50/30' : 'border-slate-300'}`}>
-                                            <input type="file" className="hidden" accept="image/*" onChange={(e) => setFotoAccidente(e.target.files?.[0] || null)} />
+                                            <input type="file" className="hidden" accept="image/*" onChange={async (e) => {
+                                                const f = e.target.files?.[0] || null;
+                                                setFotoAccidente(f ? await compressImage(f) : null);
+                                            }} />
                                             {fotoAccidente ? (
                                                 <div className="text-center overflow-hidden">
                                                     <CheckCircle2 className="w-5 h-5 text-emerald-600 mx-auto mb-1" />

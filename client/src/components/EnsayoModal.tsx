@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { compressImage } from '../lib/imageCompression';
 import { X, Camera, Upload, CheckCircle2 } from 'lucide-react';
 
 interface Props {
@@ -63,7 +64,10 @@ export default function EnsayoModal({ onClose, onSave, initialData }: Props) {
                             <input
                                 type="file"
                                 accept="image/jpeg,image/png,image/webp"
-                                onChange={(e) => setAnexoFoto(e.target.files?.[0] || null)}
+                                onChange={async (e) => {
+                                    const f = e.target.files?.[0] || null;
+                                    setAnexoFoto(f ? await compressImage(f) : null);
+                                }}
                                 className="hidden"
                             />
                             {anexoFoto ? (

@@ -1,4 +1,6 @@
 import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
+import { MulterError } from 'multer';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -82,6 +84,30 @@ if (process.env['NODE_ENV'] === 'production') {
         res.sendFile(path.join(clientDistPath, 'index.html'));
     });
 }
+
+// Manejador de errores global (debe ir al final, después de las rutas).
+// Antes, un error de multer (foto > límite, formato no permitido) se escapaba del
+// try/catch de cada ruta y Express respondía con HTML, por lo que el cliente solo veía
+// "Error al guardar" sin saber la causa. Aquí lo convertimos en JSON con mensaje claro.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    if (err instanceof MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            res.status(413).json({ error: 'La foto supera el tamaño máximo permitido (5 MB). Intente con una imagen más liviana.' });
+            return;
+        }
+        res.status(400).json({ error: `Error al subir el archivo: ${err.message}` });
+        return;
+    }
+    if (err instanceof Error) {
+        // Errores del fileFilter (ej. "Solo se permiten imágenes...") llegan como Error genérico.
+        console.error(err);
+        res.status(400).json({ error: err.message || 'Error al procesar la solicitud' });
+        return;
+    }
+    console.error('Error no controlado:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+});
 
 app.listen(PORT, () => {
     console.log(`🏗️  AED Bitácora Server running on http://localhost:${PORT}`);

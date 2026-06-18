@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../lib/api';
+import { compressImage } from '../lib/imageCompression';
 import { X, Camera, Upload, CheckCircle2, Users, Clock3 } from 'lucide-react';
 
 interface Props {
@@ -95,6 +96,12 @@ export default function ActividadModal({ torreId, onClose, onSave, initialData }
             });
         }
         onClose();
+    };
+
+    // Comprime la foto al seleccionarla, antes de guardarla en estado / subirla.
+    const handleFileChange = async (file: File | null, setter: (f: File | null) => void) => {
+        if (!file) { setter(null); return; }
+        setter(await compressImage(file));
     };
 
     const handleContratistaChange = (id: string) => {
@@ -222,7 +229,7 @@ export default function ActividadModal({ torreId, onClose, onSave, initialData }
                                 <div className="grid grid-cols-2 gap-4">
                                     {[{ state: foto1, setter: setFoto1, label: 'Foto 1' }, { state: foto2, setter: setFoto2, label: 'Foto 2' }].map(({ state, setter, label }) => (
                                         <label key={label} className={`flex flex-col items-center justify-center gap-2 px-4 py-5 bg-white border-2 border-dashed rounded-xl cursor-pointer hover:bg-amber-50/60 transition-all ${state ? 'border-emerald-400 bg-emerald-50/30' : 'border-amber-200 hover:border-amber-400'}`}>
-                                            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setter(e.target.files?.[0] || null)} className="hidden" />
+                                            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => handleFileChange(e.target.files?.[0] || null, setter)} className="hidden" />
                                             {state ? (
                                                 <div className="text-center">
                                                     <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-1.5"><CheckCircle2 className="w-5 h-5" /></div>
@@ -360,7 +367,7 @@ export default function ActividadModal({ torreId, onClose, onSave, initialData }
                                         <div key={label}>
                                             <label className="block text-[13px] font-bold text-slate-700 mb-2">{label} <span className="text-rose-500">*</span></label>
                                             <label className={`flex flex-col items-center justify-center gap-2 px-4 py-6 bg-slate-50 border-2 border-dashed rounded-xl cursor-pointer hover:bg-slate-100 transition-all ${state ? 'border-emerald-400 bg-emerald-50/30' : 'border-slate-300 hover:border-slate-400 group'}`}>
-                                                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setter(e.target.files?.[0] || null)} className="hidden" />
+                                                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => handleFileChange(e.target.files?.[0] || null, setter)} className="hidden" />
                                                 {state ? (
                                                     <div className="text-center">
                                                         <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-2"><CheckCircle2 className="w-5 h-5" /></div>

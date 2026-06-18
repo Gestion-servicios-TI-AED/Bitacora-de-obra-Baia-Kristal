@@ -106,8 +106,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
             torreId, estadoObra, diaLaborable, razonNoLaboral, explicacionNoLaboral,
             fechaRegistro, notasGenerales,
             ordenesImpartidas, cambiosAprobados, coordinacionesTecnicas,
-            accidentesFallas, fotoAccidenteUrl, reclamosComunidad,
-            firmarComoResidente
+            accidentesFallas, fotoAccidenteUrl, reclamosComunidad
         } = req.body;
 
         // Get torre to find project
@@ -142,22 +141,18 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
             nextFolio = lastFolio[0]!.numeroFolio + Math.max(daysDiff, 1);
         }
 
-        const omitirFirmaResidente = user.tipoUsuario === 'director_obra' || user.tipoUsuario === 'director_obra_general';
-
-        // El residente firma DENTRO de esta misma petición de creación. Antes la firma
-        // se aplicaba en un PATCH posterior; si la señal en obra se caía entre el create y
-        // ese PATCH, la bitácora quedaba registrada sin firma. Al firmar inline, la
-        // bitácora solo puede crearse ya firmada (atómico): o nace firmada, o no nace.
-        const firmaResidenteInline = !omitirFirmaResidente
-            && firmarComoResidente === true
-            && user.tipoUsuario === 'residente_obra';
-
-        const tieneFirmaResidente = omitirFirmaResidente || firmaResidenteInline;
-
-        const firmaResidenteData = tieneFirmaResidente
-            ? JSON.stringify({ nombre: `${user.nombre} ${user.apellido}`, email: user.email, cedula: user.cedula, cargo: user.cargo })
-            : null;
-        const firmaResidenteTimestamp = tieneFirmaResidente ? now : null;
+        // La firma del DILIGENCIADOR siempre refleja a quien crea la bitácora, sea cual sea
+        // su rol (residente, director, interventoría, supervisión, admin...). NUNCA queda en
+        // null: la persona que la diligencia queda estampada como tal al momento de crearla,
+        // en la misma petición (atómico). Así, si se cae la señal en obra, la bitácora solo
+        // puede nacer ya firmada por su autor, o no nacer.
+        const firmaResidenteData = JSON.stringify({
+            nombre: `${user.nombre} ${user.apellido}`,
+            email: user.email,
+            cedula: user.cedula,
+            cargo: user.cargo,
+        });
+        const firmaResidenteTimestamp = now;
 
         const bitacora = await prisma.bitacora.create({
             data: {
@@ -171,7 +166,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
                 razonNoLaboral: diaLaborable ? null : razonNoLaboral,
                 explicacionNoLaboral: diaLaborable ? null : explicacionNoLaboral,
                 creadoPorUsuarioId: user.id,
-                omitirFirmaResidente,
+                omitirFirmaResidente: false,
                 firmaResidenteData,
                 firmaResidenteTimestamp,
                 notasGenerales: notasGenerales || null,
@@ -181,7 +176,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
                 accidentesFallas: accidentesFallas || null,
                 fotoAccidenteUrl: fotoAccidenteUrl || null,
                 reclamosComunidad: reclamosComunidad || null,
-                estadoDiligencia: tieneFirmaResidente ? 'pendiente_ambos' : 'nuevo',
+                estadoDiligencia: 'pendiente_ambos',
             } as any,
             include: {
                 torre: true,
@@ -437,6 +432,48 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response)
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Error al eliminar bitácora' });
+    }
+});
+
+// DELETE /api/bitacoras/:id/creacion-fallida
+// Rollback de una creación a medias: si tras crear la bitácora fallan las subidas de
+// actividades/fotos (típico con señal débil en obra), el cliente llama aquí para borrar la
+// bitácora recién creada y liberar el folio, de modo que el residente pueda reintentar el
+// mismo día. Solo el creador puede hacerlo, y solo mientras NADIE más la haya avalado
+// (sin firma de director ni de interventor); así no se puede borrar trabajo ya validado.
+router.delete('/:id/creacion-fallida', authenticateToken, async (req: AuthRequest, res: Response) => {
+    try {
+        const user = req.user!;
+        const bitacora = await prisma.bitacora.findUnique({ where: { id: req.params.id as string } });
+        if (!bitacora) { res.status(404).json({ error: 'Bitácora no encontrada' }); return; }
+
+        if (bitacora.creadoPorUsuarioId !== user.id) {
+            res.status(403).json({ error: 'Solo quien creó la bitácora puede revertir su creación' });
+            return;
+        }
+        if (bitacora.firmaDirectorData || bitacora.firmaInterventorData) {
+            res.status(409).json({ error: 'La bitácora ya tiene avales y no puede revertirse' });
+            return;
+        }
+
+        const { torreId, fechaRegistro } = bitacora;
+
+        await prisma.bitacora.delete({ where: { id: req.params.id as string } });
+        await prisma.folioControl.deleteMany({ where: { torreId, fecha: fechaRegistro } });
+
+        const lastRemaining = await prisma.folioControl.findFirst({
+            where: { torreId },
+            orderBy: { fecha: 'desc' },
+        });
+        await prisma.torre.update({
+            where: { id: torreId },
+            data: { folioActual: lastRemaining ? lastRemaining.numeroFolio : 0 },
+        });
+
+        res.json({ message: 'Creación revertida' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al revertir la creación' });
     }
 });
 
