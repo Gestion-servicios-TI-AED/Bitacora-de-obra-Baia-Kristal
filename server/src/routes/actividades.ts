@@ -89,7 +89,7 @@ router.post('/', authenticateToken, upload.fields([
         res.status(201).json(actividad);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Error al crear actividad' });
+        res.status(500).json({ error: 'No se pudo guardar una de las actividades en el servidor. Intente de nuevo.' });
     }
 });
 

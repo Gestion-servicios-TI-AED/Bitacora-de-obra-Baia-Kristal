@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/authStore';
 import api from '../lib/api';
+import { getFriendlyError } from '../lib/errorMessage';
 import { useProjectStore, SINGLE_PROJECT_MODE, DEFAULT_PROJECT_NAME } from '../stores/projectStore';
 import {
     Building2, ClipboardList, FolderOpen, Settings,
@@ -50,7 +51,7 @@ export default function Layout() {
             setPwdMsg({ type: 'ok', text: 'Contraseña actualizada correctamente' });
             setPwdCurrent(''); setPwdNew(''); setPwdConfirm('');
         } catch (err: any) {
-            setPwdMsg({ type: 'err', text: err.response?.data?.error || 'Error al cambiar contraseña' });
+            setPwdMsg({ type: 'err', text: getFriendlyError(err, 'No se pudo cambiar la contraseña. Intente de nuevo.') });
         } finally {
             setPwdLoading(false);
         }

@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/authStore';
 import api from '../lib/api';
+import { getFriendlyError } from '../lib/errorMessage';
 import FirmaDigital from '../components/FirmaDigital';
 import { useState, useRef } from 'react';
 import {
@@ -83,7 +84,7 @@ export default function DetalleBitacoraPage() {
             setSignSuccess('Actividad actualizada correctamente.');
             setTimeout(() => setSignSuccess(''), 3000);
         },
-        onError: (err: any) => alert(err.response?.data?.error || 'Error al guardar'),
+        onError: (err: any) => alert(getFriendlyError(err, 'No se pudo guardar la actividad. Intente de nuevo.')),
     });
 
     const { data: bitacora, isLoading } = useQuery({
@@ -112,7 +113,7 @@ export default function DetalleBitacoraPage() {
             setTimeout(() => setSignSuccess(''), 4000);
         },
         onError: (err: any) => {
-            alert(err.response?.data?.error || 'Error de validación al firmar el documento.');
+            alert(getFriendlyError(err, 'No se pudo firmar el documento. Intente de nuevo.'));
         },
     });
 
@@ -136,7 +137,7 @@ export default function DetalleBitacoraPage() {
             queryClient.invalidateQueries({ queryKey: ['bitacoras'] });
             navigate('/bitacoras');
         },
-        onError: (err: any) => alert(err.response?.data?.error || 'Error al eliminar la bitácora'),
+        onError: (err: any) => alert(getFriendlyError(err, 'No se pudo eliminar la bitácora. Intente de nuevo.')),
     });
 
     const handleDownloadPdf = async () => {
@@ -181,7 +182,7 @@ export default function DetalleBitacoraPage() {
             pdf.save(fileName);
         } catch (error: any) {
             console.error('Error generando PDF:', error);
-            alert(`Ocurrió un error al generar el documento PDF: ${error.message || error}`);
+            alert('No se pudo generar el documento PDF. Verifique que la bitácora cargó por completo e intente de nuevo.');
         } finally {
             setIsGeneratingPdf(false);
         }

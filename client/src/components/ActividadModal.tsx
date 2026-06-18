@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../lib/api';
-import { compressImage } from '../lib/imageCompression';
+import { prepareImageForUpload } from '../lib/imageCompression';
 import { X, Camera, Upload, CheckCircle2, Users, Clock3 } from 'lucide-react';
 
 interface Props {
@@ -98,10 +98,13 @@ export default function ActividadModal({ torreId, onClose, onSave, initialData }
         onClose();
     };
 
-    // Comprime la foto al seleccionarla, antes de guardarla en estado / subirla.
+    // Comprime y valida la foto al seleccionarla. Si queda muy pesada, avisa de inmediato
+    // con un mensaje claro y no la adjunta, en vez de fallar después al guardar.
     const handleFileChange = async (file: File | null, setter: (f: File | null) => void) => {
         if (!file) { setter(null); return; }
-        setter(await compressImage(file));
+        const result = await prepareImageForUpload(file);
+        if ('error' in result) { alert(result.error); setter(null); return; }
+        setter(result.file);
     };
 
     const handleContratistaChange = (id: string) => {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuthStore } from '../stores/authStore';
+import { getFriendlyError } from '../lib/errorMessage';
 import { Building2, Eye, Lock, Mail, AlertCircle } from 'lucide-react';
 
 export default function LoginPage() {
@@ -17,7 +18,7 @@ export default function LoginPage() {
         try {
             await login(email, password);
         } catch (err: any) {
-            setError(err.response?.data?.error || 'Error al iniciar sesión');
+            setError(getFriendlyError(err, 'No se pudo iniciar sesión. Verifique su correo y contraseña.'));
         } finally {
             setIsLoading(false);
         }

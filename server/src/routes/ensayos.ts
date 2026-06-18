@@ -62,7 +62,7 @@ router.post('/', authenticateToken, upload.single('anexoFoto'), async (req: Auth
         res.status(201).json(ensayo);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Error al crear ensayo' });
+        res.status(500).json({ error: 'No se pudo guardar uno de los ensayos en el servidor. Intente de nuevo.' });
     }
 });
 

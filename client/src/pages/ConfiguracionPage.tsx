@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
+import { getFriendlyError } from '../lib/errorMessage';
 import { useProjectStore, SINGLE_PROJECT_MODE } from '../stores/projectStore';
 import CitySearchSelect from '../components/CitySearchSelect';
 import {
@@ -234,7 +235,7 @@ function ProyectoEditForm({ proyectoId, showToast, queryClient }: { proyectoId: 
             queryClient.invalidateQueries({ queryKey: ['proyectos'] });
             showToast('Datos del proyecto actualizados correctamente');
         },
-        onError: (err: any) => alert(err.response?.data?.error || 'Error al guardar'),
+        onError: (err: any) => alert(getFriendlyError(err, 'No se pudo guardar. Intente de nuevo.')),
     });
 
     if (isLoading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin" /></div>;
@@ -593,7 +594,7 @@ function UsuariosTab({ showToast }: { showToast: (m: string) => void }) {
             resetForm();
             showToast(editId ? 'Usuario actualizado' : 'Usuario creado');
         },
-        onError: (err: any) => alert(err.response?.data?.error || 'Error'),
+        onError: (err: any) => alert(getFriendlyError(err)),
     });
 
     const toggle = useMutation({
@@ -886,7 +887,7 @@ function ContratistasTab({ showToast }: { showToast: (m: string) => void }) {
             queryClient.invalidateQueries({ queryKey: ['contratistas'] });
             showToast(`Sincronización completada: ${res.data.agregados} nuevos, ${res.data.actualizados} actualizados`);
         } catch (err: any) {
-            alert(err.response?.data?.error || 'Error al sincronizar con SharePoint');
+            alert(getFriendlyError(err, 'No se pudo sincronizar con SharePoint. Intente de nuevo.'));
         } finally {
             setSyncing(false);
         }
@@ -1053,7 +1054,7 @@ function FestivosTab({ showToast }: { showToast: (m: string) => void }) {
             queryClient.invalidateQueries({ queryKey: ['festivos'] });
             showToast(res.data.message);
         } catch (err: any) {
-            alert(err.response?.data?.error || 'Error al sincronizar');
+            alert(getFriendlyError(err, 'No se pudo sincronizar. Intente de nuevo.'));
         } finally {
             setSyncing(false);
         }

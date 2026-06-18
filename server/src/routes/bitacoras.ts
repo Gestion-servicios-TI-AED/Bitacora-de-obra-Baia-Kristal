@@ -199,7 +199,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         res.status(201).json(bitacora);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Error al crear bitácora' });
+        res.status(500).json({ error: 'No se pudo guardar la bitácora en el servidor. Espere un momento e intente de nuevo.' });
     }
 });
 

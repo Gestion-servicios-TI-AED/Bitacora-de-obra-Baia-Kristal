@@ -11,6 +11,11 @@
 const MAX_DIMENSION = 1920;
 const QUALITY = 0.7;
 
+// Tope que acepta el servidor por archivo (multer). Si una imagen sigue pesando más que
+// esto tras comprimir (p. ej. un formato que el navegador no pudo optimizar), se rechaza
+// con un aviso claro ANTES de intentar subirla, para no fallar a mitad del guardado.
+export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
 interface CompressOptions {
     maxDimension?: number;
     quality?: number;
@@ -58,6 +63,22 @@ export async function compressImage(file: File, opts: CompressOptions = {}): Pro
         // Decodificación no soportada (p. ej. HEIC en Chrome) u otro error: usar el original.
         return file;
     }
+}
+
+// Comprime una imagen y valida que quede dentro del límite que acepta el servidor.
+// Devuelve { file } si quedó lista, o { error } con un mensaje claro para mostrar al usuario.
+export async function prepareImageForUpload(
+    file: File
+): Promise<{ file: File } | { error: string }> {
+    const processed = await compressImage(file);
+    if (processed.size > MAX_UPLOAD_BYTES) {
+        const mb = (processed.size / 1024 / 1024).toFixed(1);
+        return {
+            error: `Esta imagen es muy pesada (${mb} MB) y no se pudo optimizar lo suficiente. ` +
+                `Por favor tómela de nuevo o elija una foto más liviana (máximo 5 MB).`,
+        };
+    }
+    return { file: processed };
 }
 
 async function loadImage(file: File): Promise<ImageBitmap | HTMLImageElement> {

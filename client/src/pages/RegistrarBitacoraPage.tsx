@@ -6,7 +6,8 @@ import { useProjectStore } from '../stores/projectStore';
 import api from '../lib/api';
 import ActividadModal from '../components/ActividadModal';
 import FirmaDigital from '../components/FirmaDigital';
-import { compressImage } from '../lib/imageCompression';
+import { prepareImageForUpload } from '../lib/imageCompression';
+import { getFriendlyError } from '../lib/errorMessage';
 import {
     AlertTriangle, CheckCircle2, XCircle,
     Plus, Trash2, Edit, Calendar, Hash, ClipboardList, PenTool, Shield,
@@ -248,14 +249,12 @@ export default function RegistrarBitacoraPage() {
             localStorage.removeItem(getDraftKey(torreId, targetDate));
             navigate('/bitacoras');
         } catch (err: any) {
-            // Solo en error reactivamos la pantalla y avisamos. Si el servidor respondió con
-            // un mensaje, se muestra; si no hubo respuesta (corte de red en obra), explicamos
-            // que no se guardó nada y que puede reintentar.
+            // Solo en error reactivamos la pantalla y avisamos con un mensaje claro.
             setSaving(false);
-            alert(
-                err.response?.data?.error
-                || 'No se pudo guardar la bitácora, posiblemente por la conexión. No se registró nada; revise su señal e intente de nuevo (los datos del formulario se conservan).'
-            );
+            alert(getFriendlyError(
+                err,
+                'No se pudo guardar la bitácora. Revise su conexión e intente de nuevo; los datos del formulario se conservan.'
+            ));
         }
     };
 
@@ -720,7 +719,10 @@ export default function RegistrarBitacoraPage() {
                                         <label className={`flex flex-col items-center justify-center p-4 h-[108px] bg-slate-50 border-2 border-dashed rounded-xl cursor-pointer hover:bg-slate-100 transition-all ${fotoAccidente ? 'border-emerald-400 bg-emerald-50/30' : 'border-slate-300'}`}>
                                             <input type="file" className="hidden" accept="image/*" onChange={async (e) => {
                                                 const f = e.target.files?.[0] || null;
-                                                setFotoAccidente(f ? await compressImage(f) : null);
+                                                if (!f) { setFotoAccidente(null); return; }
+                                                const result = await prepareImageForUpload(f);
+                                                if ('error' in result) { alert(result.error); setFotoAccidente(null); return; }
+                                                setFotoAccidente(result.file);
                                             }} />
                                             {fotoAccidente ? (
                                                 <div className="text-center overflow-hidden">
