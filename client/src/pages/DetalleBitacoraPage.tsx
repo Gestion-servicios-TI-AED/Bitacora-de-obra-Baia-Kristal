@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/authStore';
 import api from '../lib/api';
 import { getFriendlyError } from '../lib/errorMessage';
+import { prepareImageForUpload } from '../lib/imageCompression';
 import FirmaDigital from '../components/FirmaDigital';
 import { useState, useRef } from 'react';
 import {
@@ -993,7 +994,13 @@ export default function DetalleBitacoraPage() {
                                     <div key={field}>
                                         <label className="block text-sm font-bold text-slate-700 mb-1.5">{label} <span className="text-xs font-normal text-slate-400">(opcional — reemplaza la actual)</span></label>
                                         {current && !editForm[field] && <img src={current} className="w-full h-20 object-cover rounded-lg mb-2 border border-slate-200" crossOrigin="anonymous" />}
-                                        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setEditForm({ ...editForm, [field]: e.target.files?.[0] || null })} className="w-full text-sm text-slate-700 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all" />
+                                        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={async (e) => {
+                                            const f = e.target.files?.[0] || null;
+                                            if (!f) { setEditForm({ ...editForm, [field]: null }); return; }
+                                            const result = await prepareImageForUpload(f);
+                                            if ('error' in result) { alert(result.error); setEditForm({ ...editForm, [field]: null }); return; }
+                                            setEditForm({ ...editForm, [field]: result.file });
+                                        }} className="w-full text-sm text-slate-700 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all" />
                                     </div>
                                 ))}
                             </div>

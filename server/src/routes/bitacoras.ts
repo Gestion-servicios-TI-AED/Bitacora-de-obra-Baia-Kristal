@@ -6,6 +6,24 @@ import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
+// Multer para la creación atómica de la bitácora: acepta cualquier campo de archivo
+// (fotoAccidente, act_<i>_foto1/foto2, ens_<i>_anexoFoto) porque el número de actividades
+// y ensayos es dinámico.
+const creacionStorage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, path.resolve(process.env['UPLOAD_DIR'] || './uploads')),
+    filename: (_req, file, cb) => cb(null, `folio-${Date.now()}-${Math.random().toString(36).slice(2, 11)}${path.extname(file.originalname)}`),
+});
+const uploadCreacion = multer({
+    storage: creacionStorage,
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+        const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
+        const ext = path.extname(file.originalname).toLowerCase();
+        if (allowed.includes(ext)) cb(null, true);
+        else cb(new Error('Solo se permiten imágenes (jpg, jpeg, png, webp)'));
+    },
+});
+
 // GET /api/bitacoras
 router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     try {
@@ -99,15 +117,28 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
 });
 
 // POST /api/bitacoras
-router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
+//
+// Crea la bitácora JUNTO CON sus actividades, ensayos y foto de incidente en una sola
+// petición y una sola transacción de base de datos. Antes esto eran N peticiones HTTP
+// independientes (una por actividad/ensayo) coordinadas por el cliente con Promise.all: si
+// una fallaba por señal débil en obra, las demás en vuelo no se cancelaban y podían quedar
+// guardadas de todas formas, dejando una bitácora a medias (folio consumido, torre marcada
+// como "ya tiene registro ese día", sin forma de agregar desde la UI las actividades que
+// faltaron). El intento de "deshacer" la bitácora huérfana era además de mejor esfuerzo: si
+// esa llamada de rollback también fallaba por la misma mala señal, quedaba en un limbo
+// irrecuperable. Al ser todo o nada dentro de una transacción, un corte de red a mitad de
+// camino no deja ningún residuo: ni folio consumido ni filas parciales.
+router.post('/', authenticateToken, uploadCreacion.any(), async (req: AuthRequest, res: Response) => {
     try {
         const user = req.user!;
         const {
             torreId, estadoObra, diaLaborable, razonNoLaboral, explicacionNoLaboral,
             fechaRegistro, notasGenerales,
             ordenesImpartidas, cambiosAprobados, coordinacionesTecnicas,
-            accidentesFallas, fotoAccidenteUrl, reclamosComunidad
+            accidentesFallas, reclamosComunidad,
         } = req.body;
+
+        const diaLaborableBool = diaLaborable === undefined ? true : (diaLaborable === 'true' || diaLaborable === true);
 
         // Get torre to find project
         const torre = await prisma.torre.findUnique({ where: { id: torreId }, include: { proyecto: true } });
@@ -124,6 +155,34 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         if (existing) {
             res.status(400).json({ error: 'Esta torre ya cuenta con un registro de bitácora para este día.' });
             return;
+        }
+
+        let actividades: any[] = [];
+        let ensayos: any[] = [];
+        try {
+            actividades = JSON.parse(req.body.actividades || '[]');
+            ensayos = JSON.parse(req.body.ensayos || '[]');
+        } catch {
+            res.status(400).json({ error: 'Formato inválido de actividades o ensayos.' });
+            return;
+        }
+
+        const files = (req.files as Express.Multer.File[] | undefined) || [];
+        const fileByField = new Map(files.map((f) => [f.fieldname, f]));
+
+        // Validar que las fotos obligatorias llegaron ANTES de escribir nada en la base de
+        // datos: si falta alguna, se rechaza la petición completa sin crear folio.
+        for (let i = 0; i < actividades.length; i++) {
+            if (!actividades[i].esVisita && (!fileByField.has(`act_${i}_foto1`) || !fileByField.has(`act_${i}_foto2`))) {
+                res.status(400).json({ error: `Faltan fotos obligatorias en la actividad #${i + 1}.` });
+                return;
+            }
+        }
+        for (let i = 0; i < ensayos.length; i++) {
+            if (!fileByField.has(`ens_${i}_anexoFoto`)) {
+                res.status(400).json({ error: `Falta la foto obligatoria del ensayo #${i + 1}.` });
+                return;
+            }
         }
 
         // Calculate folio
@@ -152,48 +211,89 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
             cedula: user.cedula,
             cargo: user.cargo,
         });
-        const firmaResidenteTimestamp = now;
 
-        const bitacora = await prisma.bitacora.create({
-            data: {
-                torreId,
-                proyectoId: torre.proyectoId,
-                numeroFolio: nextFolio,
-                fechaRegistro: fecha,
-                horaRegistro: hora,
-                estadoObra,
-                diaLaborable: diaLaborable ?? true,
-                razonNoLaboral: diaLaborable ? null : razonNoLaboral,
-                explicacionNoLaboral: diaLaborable ? null : explicacionNoLaboral,
-                creadoPorUsuarioId: user.id,
-                omitirFirmaResidente: false,
-                firmaResidenteData,
-                firmaResidenteTimestamp,
-                notasGenerales: notasGenerales || null,
-                ordenesImpartidas: ordenesImpartidas || null,
-                cambiosAprobados: cambiosAprobados || null,
-                coordinacionesTecnicas: coordinacionesTecnicas || null,
-                accidentesFallas: accidentesFallas || null,
-                fotoAccidenteUrl: fotoAccidenteUrl || null,
-                reclamosComunidad: reclamosComunidad || null,
-                estadoDiligencia: 'pendiente_ambos',
-            } as any,
+        const fotoAccidenteFile = fileByField.get('fotoAccidente');
+        const fotoAccidenteUrl = fotoAccidenteFile ? `/uploads/${fotoAccidenteFile.filename}` : null;
+
+        const bitacoraId = await prisma.$transaction(async (tx) => {
+            const created = await tx.bitacora.create({
+                data: {
+                    torreId,
+                    proyectoId: torre.proyectoId,
+                    numeroFolio: nextFolio,
+                    fechaRegistro: fecha,
+                    horaRegistro: hora,
+                    estadoObra: estadoObra || null,
+                    diaLaborable: diaLaborableBool,
+                    razonNoLaboral: diaLaborableBool ? null : razonNoLaboral,
+                    explicacionNoLaboral: diaLaborableBool ? null : explicacionNoLaboral,
+                    creadoPorUsuarioId: user.id,
+                    omitirFirmaResidente: false,
+                    firmaResidenteData,
+                    firmaResidenteTimestamp: now,
+                    notasGenerales: notasGenerales || null,
+                    ordenesImpartidas: ordenesImpartidas || null,
+                    cambiosAprobados: cambiosAprobados || null,
+                    coordinacionesTecnicas: coordinacionesTecnicas || null,
+                    accidentesFallas: accidentesFallas || null,
+                    fotoAccidenteUrl,
+                    reclamosComunidad: reclamosComunidad || null,
+                    estadoDiligencia: 'pendiente_ambos',
+                } as any,
+            });
+
+            for (let i = 0; i < actividades.length; i++) {
+                const act = actividades[i];
+                const isVisita = !!act.esVisita;
+                const foto1 = fileByField.get(`act_${i}_foto1`);
+                const foto2 = fileByField.get(`act_${i}_foto2`);
+                await tx.bitacoraActividad.create({
+                    data: {
+                        bitacoraId: created.id,
+                        esVisita: isVisita,
+                        actividadEjecutada: isVisita ? (act.descripcionVisita ?? '') : act.actividadEjecutada,
+                        porcentajeCompletado: isVisita ? null : parseInt(act.porcentajeCompletado),
+                        contratistaId: isVisita ? null : (act.contratistaId || null),
+                        trabajadoresEnObra: isVisita ? null : parseInt(act.trabajadoresEnObra),
+                        horasTrabajadas: isVisita ? null : parseInt(act.horasTrabajadas),
+                        climaManana: isVisita ? null : act.climaManana,
+                        climaTarde: isVisita ? null : act.climaTarde,
+                        foto1Url: foto1 ? `/uploads/${foto1.filename}` : null,
+                        foto2Url: foto2 ? `/uploads/${foto2.filename}` : null,
+                        notasGenerales: isVisita ? null : (act.notasGenerales || null),
+                        descripcionVisita: isVisita ? (act.descripcionVisita ?? null) : null,
+                        numeroPersonasVisita: isVisita ? parseInt(act.numeroPersonasVisita) : null,
+                        duracionVisita: isVisita ? parseInt(act.duracionVisita) : null,
+                    } as any,
+                });
+            }
+
+            for (let i = 0; i < ensayos.length; i++) {
+                const anexo = fileByField.get(`ens_${i}_anexoFoto`)!;
+                await (tx as any).bitacoraEnsayo.create({
+                    data: {
+                        bitacoraId: created.id,
+                        ensayoRealizado: ensayos[i].ensayoRealizado,
+                        anexoFotoUrl: `/uploads/${anexo.filename}`,
+                    },
+                });
+            }
+
+            await tx.folioControl.create({ data: { torreId, fecha, numeroFolio: nextFolio } });
+            await tx.torre.update({ where: { id: torreId }, data: { folioActual: nextFolio } });
+
+            return created.id;
+        });
+
+        const bitacora = await prisma.bitacora.findUnique({
+            where: { id: bitacoraId },
             include: {
                 torre: true,
                 proyecto: true,
                 creadoPor: { select: { id: true, nombre: true, apellido: true, cargo: true, email: true, tipoUsuario: true } },
-            },
-        });
-
-        // Record folio
-        await prisma.folioControl.create({
-            data: { torreId, fecha, numeroFolio: nextFolio },
-        });
-
-        // Update torre folio
-        await prisma.torre.update({
-            where: { id: torreId },
-            data: { folioActual: nextFolio },
+                actividades: { include: { contratista: true } },
+                ensayos: true,
+            } as any,
         });
 
         res.status(201).json(bitacora);
@@ -432,48 +532,6 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response)
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Error al eliminar bitácora' });
-    }
-});
-
-// DELETE /api/bitacoras/:id/creacion-fallida
-// Rollback de una creación a medias: si tras crear la bitácora fallan las subidas de
-// actividades/fotos (típico con señal débil en obra), el cliente llama aquí para borrar la
-// bitácora recién creada y liberar el folio, de modo que el residente pueda reintentar el
-// mismo día. Solo el creador puede hacerlo, y solo mientras NADIE más la haya avalado
-// (sin firma de director ni de interventor); así no se puede borrar trabajo ya validado.
-router.delete('/:id/creacion-fallida', authenticateToken, async (req: AuthRequest, res: Response) => {
-    try {
-        const user = req.user!;
-        const bitacora = await prisma.bitacora.findUnique({ where: { id: req.params.id as string } });
-        if (!bitacora) { res.status(404).json({ error: 'Bitácora no encontrada' }); return; }
-
-        if (bitacora.creadoPorUsuarioId !== user.id) {
-            res.status(403).json({ error: 'Solo quien creó la bitácora puede revertir su creación' });
-            return;
-        }
-        if (bitacora.firmaDirectorData || bitacora.firmaInterventorData) {
-            res.status(409).json({ error: 'La bitácora ya tiene avales y no puede revertirse' });
-            return;
-        }
-
-        const { torreId, fechaRegistro } = bitacora;
-
-        await prisma.bitacora.delete({ where: { id: req.params.id as string } });
-        await prisma.folioControl.deleteMany({ where: { torreId, fecha: fechaRegistro } });
-
-        const lastRemaining = await prisma.folioControl.findFirst({
-            where: { torreId },
-            orderBy: { fecha: 'desc' },
-        });
-        await prisma.torre.update({
-            where: { id: torreId },
-            data: { folioActual: lastRemaining ? lastRemaining.numeroFolio : 0 },
-        });
-
-        res.json({ message: 'Creación revertida' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Error al revertir la creación' });
     }
 });
 

@@ -164,83 +164,49 @@ export default function RegistrarBitacoraPage() {
         if (diaLaborable && actividades.length === 0) return;
         setSaving(true);
         try {
-            // 1. Create bitacora
-            const bitRes = await api.post('/bitacoras', {
-                torreId,
-                estadoObra: estadoObra || null,
-                diaLaborable,
-                razonNoLaboral: diaLaborable ? null : razonNoLaboral,
-                explicacionNoLaboral: diaLaborable ? null : explicacionNoLaboral,
-                fechaRegistro: isRetroactive ? targetDate : undefined,
-                notasGenerales: notasGeneralesBitacora,
-                ordenesImpartidas,
-                cambiosAprobados,
-                coordinacionesTecnicas,
-                accidentesFallas,
-                reclamosComunidad,
-                // La firma del diligenciador se estampa en el servidor con los datos de quien
-                // crea la bitácora, dentro de esta misma petición (nunca queda en null).
+            // Todo (bitácora, actividades, ensayos y foto de incidente) viaja en UNA sola
+            // petición multipart y se crea en una sola transacción en el servidor: o se
+            // guarda todo, o no se guarda nada. Antes esto eran varias peticiones paralelas
+            // independientes (bitácora + una por actividad/ensayo); si alguna fallaba por
+            // señal débil en obra, las demás en vuelo no se cancelaban y podían quedar
+            // guardadas igual, dejando folios consumidos con datos a medias e irrecuperables
+            // desde la UI.
+            const formData = new FormData();
+            formData.append('torreId', torreId);
+            if (estadoObra) formData.append('estadoObra', estadoObra);
+            formData.append('diaLaborable', String(diaLaborable));
+            if (!diaLaborable) {
+                formData.append('razonNoLaboral', razonNoLaboral);
+                formData.append('explicacionNoLaboral', explicacionNoLaboral);
+            }
+            if (isRetroactive) formData.append('fechaRegistro', targetDate);
+            formData.append('notasGenerales', notasGeneralesBitacora);
+            formData.append('ordenesImpartidas', ordenesImpartidas);
+            formData.append('cambiosAprobados', cambiosAprobados);
+            formData.append('coordinacionesTecnicas', coordinacionesTecnicas);
+            formData.append('accidentesFallas', accidentesFallas);
+            formData.append('reclamosComunidad', reclamosComunidad);
+            // La firma del diligenciador se estampa en el servidor con los datos de quien
+            // crea la bitácora, dentro de esta misma petición (nunca queda en null).
+
+            if (fotoAccidente) formData.append('fotoAccidente', fotoAccidente);
+
+            const actividadesMeta = actividades.map(({ foto1, foto2, ...rest }: any) => rest);
+            formData.append('actividades', JSON.stringify(actividadesMeta));
+            actividades.forEach((act: any, i: number) => {
+                if (act.foto1) formData.append(`act_${i}_foto1`, act.foto1);
+                if (act.foto2) formData.append(`act_${i}_foto2`, act.foto2);
             });
-            const bitacoraId = bitRes.data.id;
 
-            // 2. Subir actividades, ensayos y foto de incidente en paralelo.
-            // Si algo falla aquí (típicamente por señal débil en obra), revertimos la
-            // bitácora recién creada para liberar el folio y permitir reintentar el mismo día.
-            try {
-            const uploads: Promise<any>[] = [];
+            const ensayosMeta = ensayos.map(({ anexoFoto, ...rest }: any) => rest);
+            formData.append('ensayos', JSON.stringify(ensayosMeta));
+            ensayos.forEach((ens: any, i: number) => {
+                if (ens.anexoFoto) formData.append(`ens_${i}_anexoFoto`, ens.anexoFoto);
+            });
 
-            if (fotoAccidente) {
-                const incData = new FormData();
-                incData.append('fotoAccidente', fotoAccidente);
-                uploads.push(api.patch(`/bitacoras/${bitacoraId}/foto-accidente`, incData, {
-                    headers: { 'Content-Type': 'multipart/form-data' },
-                }));
-            }
-
-            for (const act of actividades) {
-                const formData = new FormData();
-                formData.append('bitacoraId', bitacoraId);
-                formData.append('esVisita', act.esVisita ? 'true' : 'false');
-                if (act.esVisita) {
-                    formData.append('descripcionVisita', act.descripcionVisita);
-                    formData.append('numeroPersonasVisita', act.numeroPersonasVisita.toString());
-                    formData.append('duracionVisita', act.duracionVisita.toString());
-                } else {
-                    formData.append('actividadEjecutada', act.actividadEjecutada);
-                    formData.append('porcentajeCompletado', act.porcentajeCompletado.toString());
-                    formData.append('contratistaId', act.contratistaId);
-                    formData.append('trabajadoresEnObra', act.trabajadoresEnObra.toString());
-                    formData.append('horasTrabajadas', act.horasTrabajadas.toString());
-                    formData.append('climaManana', act.climaManana);
-                    formData.append('climaTarde', act.climaTarde);
-                    formData.append('notasGenerales', act.notasGenerales);
-                }
-                if (act.foto1) formData.append('foto1', act.foto1);
-                if (act.foto2) formData.append('foto2', act.foto2);
-                uploads.push(api.post('/actividades', formData, {
-                    headers: { 'Content-Type': 'multipart/form-data' },
-                }));
-            }
-
-            for (const ens of ensayos) {
-                const formData = new FormData();
-                formData.append('bitacoraId', bitacoraId);
-                formData.append('ensayoRealizado', ens.ensayoRealizado);
-                formData.append('anexoFoto', ens.anexoFoto);
-                uploads.push(api.post('/ensayos', formData, {
-                    headers: { 'Content-Type': 'multipart/form-data' },
-                }));
-            }
-
-            await Promise.all(uploads);
-            } catch (uploadErr) {
-                // Revertir la bitácora huérfana (mejor esfuerzo). Si la reversión también
-                // falla por la red, un admin podrá eliminarla manualmente después.
-                try {
-                    await api.delete(`/bitacoras/${bitacoraId}/creacion-fallida`);
-                } catch { /* sin acción: se reporta el error de subida abajo */ }
-                throw uploadErr;
-            }
+            await api.post('/bitacoras', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
 
             // Guardado exitoso: limpiar el borrador y llevar al listado de folios.
             // NO apagamos `saving`: así el overlay "Registrando folio..." permanece visible
