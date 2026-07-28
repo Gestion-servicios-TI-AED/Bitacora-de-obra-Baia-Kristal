@@ -100,6 +100,7 @@ export default function CalendarView({ bitacoras, festivos, userRole, onNavigate
                     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                     const dayOfWeek = new Date(year, month, day).getDay();
                     const isSunday = dayOfWeek === 0;
+                    const isSaturday = dayOfWeek === 6;
                     const isFestivo = festivoSet.has(dateStr);
                     const registros = bitacoraMap.get(dateStr) || [];
                     const hasRegistro = registros.length > 0;
@@ -114,7 +115,7 @@ export default function CalendarView({ bitacoras, festivos, userRole, onNavigate
                     const isPast = new Date(dateStr) < new Date(localTodayStr);
                     const isPrivilegedUser = userRole === 'director_obra_general' || userRole === 'admin';
                     const canRegisterRetroactive = isPast && (
-                        (!hasRegistro && (isSunday || isFestivo)) || isPrivilegedUser
+                        (!hasRegistro && (isSaturday || isSunday || isFestivo)) || isPrivilegedUser
                     );
                     const isPopoverOpen = popoverDate === dateStr;
 
@@ -123,7 +124,7 @@ export default function CalendarView({ bitacoras, festivos, userRole, onNavigate
                         bgColor = 'bg-green-100/80 border-green-200 hover:bg-green-100';
                     } else if (canRegisterRetroactive) {
                         bgColor = 'bg-amber-50/80 border-amber-300 hover:bg-amber-100 hover:border-amber-400 hover:shadow-md';
-                    } else if (isSunday || isFestivo) {
+                    } else if (isSaturday || isSunday || isFestivo) {
                         bgColor = 'bg-gray-50 border-gray-200';
                     } else if (isPast) {
                         bgColor = 'bg-red-50/50 border-red-200/50';
@@ -151,13 +152,14 @@ export default function CalendarView({ bitacoras, festivos, userRole, onNavigate
                             title={canRegisterRetroactive && !hasRegistro ? 'Clic para registrar bitácora de este día' : hasRegistro ? 'Clic para ver detalles/registros' : undefined}
                         >
                             <div className="flex items-center justify-between">
-                                <span className={`text-sm font-medium ${isToday ? 'text-primary font-bold' : isSunday ? 'text-red-400' : 'text-gray-700'}`}>
+                                <span className={`text-sm font-medium ${isToday ? 'text-primary font-bold' : (isSunday || isSaturday) ? 'text-red-400' : 'text-gray-700'}`}>
                                     {day}
                                 </span>
                                 <div className="flex items-center gap-0.5">
                                     {hasRetroactive && <span title="Contiene registro retroactivo"><Clock className="w-3 h-3 text-amber-500" /></span>}
                                     {isFestivo && <span className="text-xs">🎉</span>}
                                     {isSunday && !isFestivo && <span className="text-xs text-gray-400">Dom</span>}
+                                    {isSaturday && !isFestivo && <span className="text-xs text-gray-400">Sáb</span>}
                                 </div>
                             </div>
                             {hasRegistro && (
@@ -274,11 +276,11 @@ export default function CalendarView({ bitacoras, festivos, userRole, onNavigate
                 </div>
                 <div className="flex items-center gap-1.5">
                     <div className="w-3 h-3 rounded-sm bg-gray-50 border border-gray-200"></div>
-                    Domingo / Festivo
+                    Sábado / Domingo / Festivo
                 </div>
                 <div className="flex items-center gap-1.5">
                     <div className="w-3 h-3 rounded-sm bg-amber-50 border border-amber-300"></div>
-                    Domingo/Festivo registrable
+                    Sábado/Domingo/Festivo registrable
                 </div>
             </div>
         </div>
