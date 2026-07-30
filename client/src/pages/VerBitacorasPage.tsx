@@ -74,7 +74,7 @@ export default function VerBitacorasPage() {
         },
     });
 
-    const { data: bitacoras = [], total, page, totalPages } = bitacorasData;
+    const { data: bitacoras = [], total, totalPages } = bitacorasData;
 
     const { data: festivos = [] } = useQuery({
         queryKey: ['festivos'],
