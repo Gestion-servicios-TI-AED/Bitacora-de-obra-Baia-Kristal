@@ -51,7 +51,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
             const torreIds = userTorres.map(ut => ut.torreId);
             if (torre_id) {
                 if (!torreIds.includes(torre_id as string)) {
-                    res.json([]);
+                    res.json({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 });
                     return;
                 }
             } else {
@@ -60,18 +60,34 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         }
         // admin sees all
 
-        const bitacoras = await prisma.bitacora.findMany({
-            where,
-            include: {
-                torre: true,
-                proyecto: true,
-                creadoPor: { select: { id: true, nombre: true, apellido: true, cargo: true, email: true, tipoUsuario: true } },
-                _count: { select: { actividades: true } },
-            },
-            orderBy: { fechaRegistro: 'desc' },
-        });
+        // Pagination
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+        const skip = (page - 1) * limit;
 
-        res.json(bitacoras);
+        const [bitacoras, total] = await Promise.all([
+            prisma.bitacora.findMany({
+                where,
+                include: {
+                    torre: true,
+                    proyecto: true,
+                    creadoPor: { select: { id: true, nombre: true, apellido: true, cargo: true, email: true, tipoUsuario: true } },
+                    _count: { select: { actividades: true } },
+                },
+                orderBy: { fechaRegistro: 'desc' },
+                skip,
+                take: limit,
+            }),
+            prisma.bitacora.count({ where }),
+        ]);
+
+        res.json({
+            data: bitacoras,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Error al obtener bitácoras' });

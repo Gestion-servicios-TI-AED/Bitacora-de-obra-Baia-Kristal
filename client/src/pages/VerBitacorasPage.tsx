@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
@@ -6,7 +6,8 @@ import { useProjectStore, SINGLE_PROJECT_MODE } from '../stores/projectStore';
 import api from '../lib/api';
 import CalendarView from '../components/CalendarView';
 import {
-    Filter, Calendar, LayoutList, Eye, Building2, SearchX
+    Filter, Calendar, LayoutList, Eye, Building2, SearchX,
+    ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 
 const estadoBadge: Record<string, { label: string; class: string }> = {
@@ -34,6 +35,8 @@ export default function VerBitacorasPage() {
     const [estadoFilter, setEstadoFilter] = useState('');
     const [fechaDesde, setFechaDesde] = useState('');
     const [fechaHasta, setFechaHasta] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [limit, setLimit] = useState(20);
 
     const { data: proyectos = [] } = useQuery({
         queryKey: ['proyectos'],
@@ -43,6 +46,11 @@ export default function VerBitacorasPage() {
     // In single-project mode, lock the filter to the active project
     const effectiveProyectoFilter = SINGLE_PROJECT_MODE ? (selectedProjectId || '') : proyectoFilter;
 
+    // Reset page to 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [effectiveProyectoFilter, torreFilter, estadoFilter, fechaDesde, fechaHasta]);
+
     const { data: torres = [] } = useQuery({
         queryKey: ['torres', effectiveProyectoFilter],
         queryFn: async () => {
@@ -51,8 +59,8 @@ export default function VerBitacorasPage() {
         },
     });
 
-    const { data: bitacoras = [], isLoading } = useQuery({
-        queryKey: ['bitacoras', effectiveProyectoFilter, torreFilter, estadoFilter, fechaDesde, fechaHasta],
+    const { data: bitacorasData = { data: [], total: 0, page: 1, limit: 20, totalPages: 0 }, isLoading } = useQuery({
+        queryKey: ['bitacoras', effectiveProyectoFilter, torreFilter, estadoFilter, fechaDesde, fechaHasta, currentPage, limit],
         queryFn: async () => {
             const params = new URLSearchParams();
             if (effectiveProyectoFilter) params.set('proyecto_id', effectiveProyectoFilter);
@@ -60,9 +68,13 @@ export default function VerBitacorasPage() {
             if (estadoFilter) params.set('estado', estadoFilter);
             if (fechaDesde) params.set('fecha_desde', fechaDesde);
             if (fechaHasta) params.set('fecha_hasta', fechaHasta);
+            params.set('page', String(currentPage));
+            params.set('limit', String(limit));
             return (await api.get(`/bitacoras?${params.toString()}`)).data;
         },
     });
+
+    const { data: bitacoras = [], total, page, totalPages } = bitacorasData;
 
     const { data: festivos = [] } = useQuery({
         queryKey: ['festivos'],
@@ -79,7 +91,7 @@ export default function VerBitacorasPage() {
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Ver Bitácoras</h1>
-                        <p className="text-sm text-slate-500 mt-0.5">{bitacoras.length} registro(s) encontrado(s)</p>
+                        <p className="text-sm text-slate-500 mt-0.5">{total} registro(s) encontrado(s)</p>
                     </div>
                 </div>
                 <div className="flex items-center self-start sm:self-auto bg-slate-100/80 p-1 rounded-xl ring-1 ring-slate-200/50 shadow-inner">
@@ -230,6 +242,59 @@ export default function VerBitacorasPage() {
                         onNavigate={(id: string) => navigate(`/bitacoras/${id}`)}
                         onRegisterRetroactive={(fecha: string) => navigate(`/registrar?fecha=${fecha}`)}
                     />
+                </div>
+            )}
+
+            {/* Pagination */}
+            {view === 'table' && totalPages > 0 && (
+                <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white rounded-2xl shadow-sm border border-slate-200/60 p-4">
+                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                        <span>Mostrar</span>
+                        <select
+                            value={limit}
+                            onChange={(e) => { setLimit(Number(e.target.value)); setCurrentPage(1); }}
+                            className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        >
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                        </select>
+                        <span>por página</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setCurrentPage(1)}
+                            disabled={currentPage === 1}
+                            className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >
+                            <ChevronsLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <span className="px-3 py-1 text-sm font-medium text-slate-700">
+                            Página {currentPage} de {totalPages}
+                        </span>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(totalPages)}
+                            disabled={currentPage === totalPages}
+                            className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >
+                            <ChevronsRight className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             )}
         </div>
