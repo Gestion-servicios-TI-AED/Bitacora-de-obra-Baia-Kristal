@@ -15,7 +15,7 @@ npm run dev:client   # Client only (Vite, port 5173)
 
 ### Database (run from `server/`)
 ```bash
-npx prisma db push       # Apply schema changes to SQLite (use this, NOT migrate dev)
+npx prisma db push       # Apply schema changes to PostgreSQL (use this, NOT migrate dev)
 npx prisma generate      # Regenerate Prisma client after schema changes
 npx tsx prisma/seed.ts   # Reseed — DESTRUCTIVE, wipes all data
 ```
@@ -40,7 +40,7 @@ Copy `server/.env.example` → `server/.env`. Required vars: `DATABASE_URL`, `JW
 **Monorepo** with three `package.json` files: root (concurrently only), `server/`, `client/`.
 
 ### Backend — `server/`
-- **Express** + **Prisma** (SQLite). Single `prisma` client instance exported from `src/index.ts`.
+- **Express** + **Prisma** (PostgreSQL). Single `prisma` client instance exported from `src/index.ts`.
 - All routes under `src/routes/`, mounted at `/api/<resource>` in `index.ts`.
 - Auth: JWT via `Authorization: Bearer <token>` header. Middleware in `src/middleware/auth.ts` provides `authenticateToken` and `requireRole(...roles)`.
 - File uploads via **multer**; served statically at `/uploads`.
@@ -92,3 +92,15 @@ Bitácora registration drafts are stored in `localStorage` under key `borrador_b
 3. `cd server && npx prisma generate`
 4. Update the corresponding route to read/write the new field
 5. The IDE error "does not exist in type" after step 1 is expected — it clears after step 3
+
+## Technical documentation maintenance
+A full technical documentation file lives outside this repo at
+`C:\Users\GabrielEliasValdelam\Desktop\Documentaciones\Documentacion-Tecnica-Bitacora-Obra-Baia-Kristal.md`.
+Whenever you make a change in this codebase that would make that document inaccurate or
+incomplete (new/changed API route, schema change, new module or page, change in auth/roles,
+change in deployment config, Dockerfile, env vars, etc.), update the relevant section(s) of
+that file in the same session — don't wait to be asked. Keep its tone consistent with the
+existing content: ground every claim in the actual code (re-read the current file/route
+before describing it), and explicitly flag anything that can't be verified from the
+repository instead of guessing. Bump "Versión del documento" and "Fecha de elaboración" at
+the top when you update it.

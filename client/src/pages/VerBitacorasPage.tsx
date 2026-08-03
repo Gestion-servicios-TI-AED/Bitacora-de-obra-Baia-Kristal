@@ -76,6 +76,26 @@ export default function VerBitacorasPage() {
 
     const { data: bitacoras = [], total, totalPages } = bitacorasData;
 
+    // El calendario debe mostrar TODOS los registros que cumplen los filtros activos,
+    // sin importar en qué página/límite esté parada la vista de tabla — por eso usa su
+    // propia consulta, sin paginar (mismos filtros, page=1 y un límite alto).
+    const { data: bitacorasCalendario = [] } = useQuery({
+        queryKey: ['bitacoras-calendario', effectiveProyectoFilter, torreFilter, estadoFilter, fechaDesde, fechaHasta],
+        queryFn: async () => {
+            const params = new URLSearchParams();
+            if (effectiveProyectoFilter) params.set('proyecto_id', effectiveProyectoFilter);
+            if (torreFilter) params.set('torre_id', torreFilter);
+            if (estadoFilter) params.set('estado', estadoFilter);
+            if (fechaDesde) params.set('fecha_desde', fechaDesde);
+            if (fechaHasta) params.set('fecha_hasta', fechaHasta);
+            params.set('page', '1');
+            params.set('limit', '1000');
+            const res = await api.get(`/bitacoras?${params.toString()}`);
+            return res.data.data;
+        },
+        enabled: view === 'calendar',
+    });
+
     const { data: festivos = [] } = useQuery({
         queryKey: ['festivos'],
         queryFn: async () => (await api.get('/festivos')).data,
@@ -235,7 +255,7 @@ export default function VerBitacorasPage() {
             ) : (
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-1">
                     <CalendarView
-                        bitacoras={bitacoras}
+                        bitacoras={bitacorasCalendario}
                         festivos={festivos}
                         torreFilter={torreFilter}
                         userRole={user?.tipoUsuario}

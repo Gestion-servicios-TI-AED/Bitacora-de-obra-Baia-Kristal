@@ -62,7 +62,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 
         // Pagination
         const page = Math.max(1, parseInt(req.query.page as string) || 1);
-        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+        const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit as string) || 20));
         const skip = (page - 1) * limit;
 
         const [bitacoras, total] = await Promise.all([
