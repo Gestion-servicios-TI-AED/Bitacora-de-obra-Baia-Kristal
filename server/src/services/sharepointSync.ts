@@ -151,13 +151,21 @@ export async function syncContratistas(proyectoId: string): Promise<SyncResult> 
     const headers = (values[0] as any[]).map((h) => normalize(String(h ?? '')));
 
     const colNombre = headers.findIndex((h) => h === normalize('CONTRATISTA'));
-    const colDebida = headers.findIndex((h) => h === normalize('DEBIDA DILIGENCIA'));
-    const colConf   = headers.findIndex((h) => h === normalize('CONFIDENCIALIDAD'));
+    // La hoja renombró estas columnas a "DD" y "AC" — se mantiene el nombre
+    // viejo como respaldo por si se vuelve a renombrar (mismo fix ya aplicado
+    // en Solicitudes de Contratación, ver commit e84a904 de ese repo).
+    const colDebida = headers.findIndex((h) => h === normalize('DD'));
+    const colDebidaLegacy = headers.findIndex((h) => h === normalize('DEBIDA DILIGENCIA'));
+    const colConf   = headers.findIndex((h) => h === normalize('AC'));
+    const colConfLegacy = headers.findIndex((h) => h === normalize('CONFIDENCIALIDAD'));
     const colFecha  = headers.findIndex((h) => h === normalize('FECHA DE VENCIMIENTO SAGRILAFT'));
 
+    const colDebidaFinal = colDebida !== -1 ? colDebida : colDebidaLegacy;
+    const colConfFinal   = colConf !== -1 ? colConf : colConfLegacy;
+
     if (colNombre === -1) throw new Error('Columna "CONTRATISTA" no encontrada en el Excel');
-    if (colDebida === -1) throw new Error('Columna "DEBIDA DILIGENCIA" no encontrada en el Excel');
-    if (colConf   === -1) throw new Error('Columna "CONFIDENCIALIDAD" no encontrada en el Excel');
+    if (colDebidaFinal === -1) throw new Error('Columna "DD" (o "DEBIDA DILIGENCIA") no encontrada en el Excel');
+    if (colConfFinal   === -1) throw new Error('Columna "AC" (o "CONFIDENCIALIDAD") no encontrada en el Excel');
 
     let added = 0, updated = 0, skipped = 0;
 
@@ -166,8 +174,8 @@ export async function syncContratistas(proyectoId: string): Promise<SyncResult> 
         const rowText = text[i] as string[];
 
         const nombre = String(row[colNombre] ?? '').trim();
-        const debida = isChecked(row[colDebida]);
-        const conf   = isChecked(row[colConf]);
+        const debida = isChecked(row[colDebidaFinal]);
+        const conf   = isChecked(row[colConfFinal]);
         const fecha  = colFecha >= 0
             ? normalizeDate(row[colFecha], rowText?.[colFecha] ?? '')
             : null;
